@@ -108,6 +108,8 @@ type Saved = {
 };
 
 export function Navigator() {
+  // A new screen always opens at its top. Without this, the result could open with its title scrolled away.
+  const scroller = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState<Step>("barrier");
   const [answers, setAnswers] = useState<Answers>(EMPTY);
   const [sample, setSample] = useState(false);
@@ -410,6 +412,10 @@ export function Navigator() {
     return () => window.clearTimeout(t);
   }, [autoKey]);
 
+  useEffect(() => {
+    scroller.current?.scrollTo({ top: 0 });
+  }, [step]);
+
   const soFar = showSoFar && result ? <SoFar result={result} step={step} /> : null;
 
   let body: ReactNode = null;
@@ -591,7 +597,7 @@ export function Navigator() {
           </ol>
         </aside>
         <div className="relative flex h-dvh flex-col bg-sheet md:my-6 md:h-auto md:max-h-[calc(100dvh-3rem)] md:min-h-[calc(100dvh-3rem)] md:rounded-3xl md:border md:border-line">
-          <div className="safe-pad flex min-h-0 flex-1 flex-col overflow-y-auto">{body}</div>
+          <div ref={scroller} className="safe-pad flex min-h-0 flex-1 flex-col overflow-y-auto">{body}</div>
           {soFar}
           {sheet ? (
             <FactSheet
@@ -628,8 +634,9 @@ function Header({
   planSent?: boolean;
 }) {
   const index = FLOW.indexOf(step);
-  const rail = railIndex(step, planSent);
-  const nodes = ["You", "Sort", "Price", "Options", "Plan"];
+  // One segment per question. The result fills the whole bar. The five-node rail stays on the desktop side panel only.
+  const filled = step === "result" ? FLOW.length : index + 1;
+  void planSent;
   return (
     <header className="sticky top-0 z-10 bg-sheet px-5 pt-4 pb-3">
       <div className="flex items-center gap-3">
@@ -650,11 +657,10 @@ function Header({
             {KICKER[step]}
             {index >= 0 ? ` · ${index + 1} of ${FLOW.length}` : ""}
           </p>
-          <ol className="mt-2 flex gap-1" aria-label="Workflow">
-            {nodes.map((name, i) => (
-              <li key={name} className="min-w-0 flex-1" aria-current={i === rail ? "step" : undefined}>
-                <span className={`block h-1 rounded-full ${i <= rail ? "bg-spruce" : "bg-line"}`} />
-                <span className="sr-only">{name}</span>
+          <ol className="mt-2 flex gap-1" aria-label={`Step ${Math.min(filled, FLOW.length)} of ${FLOW.length}`}>
+            {FLOW.map((name, i) => (
+              <li key={name} className="min-w-0 flex-1" aria-current={i === filled - 1 ? "step" : undefined}>
+                <span className={`block h-1 rounded-full ${i < filled ? "bg-spruce" : "bg-line"}`} />
               </li>
             ))}
           </ol>
@@ -686,28 +692,48 @@ function BarrierStep({
     <div className="flex flex-1 flex-col">
       <Header step="barrier" />
       <div className="flex flex-1 flex-col px-5 pt-2 pb-6">
-        <h1 className="font-serif text-3xl leading-tight">Would an electric car already work for an ordinary week?</h1>
+        <h1 className="font-serif text-[1.7rem] leading-tight">Would an electric car already work for an ordinary week?</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted">
-          Tap what would still stop you. Keeping the car you have is a fair ending. The first number appears once we know where the car sleeps.
+          Tap what would still stop you. Six taps, about a minute, nothing typed. Keeping your car is a fair ending.
         </p>
-        <div className="mt-5 flex flex-col gap-2">
+        <div className="mt-4 flex flex-col gap-2">
           {BARRIERS.map((opt) => (
-            <div key={opt.id}>
-              <Choice title={opt.title} detail={opt.detail} selected={value === opt.id} onClick={() => onPick(opt.id)} />
-              {opt.id === "trips" ? (
-                <NoteButton label="Read the 2:1 idea" onClick={() => onFact("two-for-one")} />
-              ) : null}
-              {opt.id === "trust" ? (
-                <NoteButton label="Read about a battery certificate" onClick={() => onFact("battery")} />
-              ) : null}
-            </div>
+            <Choice key={opt.id} title={opt.title} detail={opt.detail} selected={value === opt.id} onClick={() => onPick(opt.id)} />
           ))}
         </div>
-        <button type="button" onClick={onSample} className="mt-6 text-sm font-medium text-spruce">
-          See a worked example
-        </button>
+        <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1">
+          <button type="button" onClick={onSample} className="min-h-11 text-sm font-medium text-spruce">
+            See a worked example
+          </button>
+          <button type="button" onClick={() => onFact("two-for-one")} className="min-h-11 text-sm font-medium text-spruce">
+            The 2:1 idea
+          </button>
+          <button type="button" onClick={() => onFact("battery")} className="min-h-11 text-sm font-medium text-spruce">
+            Battery certificates
+          </button>
+        </div>
       </div>
     </div>
+  );
+}
+
+function Fold({ title, line, open, onToggle, children }: { title: string; line: string; open: boolean; onToggle: () => void; children: ReactNode }) {
+  return (
+    <section>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl border border-line bg-card px-4 py-3 text-left"
+      >
+        <span className="min-w-0">
+          <span className="block font-medium">{title}</span>
+          <span className="mt-0.5 block text-sm leading-snug text-muted">{line}</span>
+        </span>
+        <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open ? <div className="mt-4 flex flex-col gap-4">{children}</div> : null}
+    </section>
   );
 }
 
@@ -972,6 +998,14 @@ function ResultView({
   grain: "municipality" | null;
 }) {
   const [climateOpen, setClimateOpen] = useState(false);
+  // Two closed folds hold the reasoning and the evidence. The decision, the next steps and the levers stay on the page.
+  const [folds, setFolds] = useState({ why: false, evidence: false });
+  useEffect(() => {
+    if (gap !== "payback") return;
+    setFolds((f) => ({ ...f, why: true }));
+    const id = window.setTimeout(() => document.getElementById("how-payback")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+    return () => window.clearTimeout(id);
+  }, [gap]);
   const home = homeCopy(result.answers.parking);
   const primary: { key: keyof Toggles; title: string; hint: string }[] = [
     { key: "home", title: home.title, hint: home.hint },
@@ -1130,6 +1164,40 @@ function ResultView({
         </section>
 
         <section>
+          <h2 className="font-medium">Next steps</h2>
+          <ol className="mt-3 space-y-3">
+            {result.steps.map((s, i) => (
+              <li key={s.title} className="rounded-2xl border border-line bg-card px-4 py-3">
+                <p className="text-xs font-medium tracking-widest text-muted uppercase">Step {i + 1}</p>
+                <p className="mt-1 font-medium">{s.title}</p>
+                <p className="mt-1 text-sm leading-relaxed text-muted">{s.detail}</p>
+                {s.lines ? (
+                  <ul className="mt-2 list-disc space-y-1 pl-4 text-sm">
+                    {s.lines.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                ) : null}
+                {s.lines ? (
+                  <button
+                    type="button"
+                    onClick={() => void navigator.clipboard.writeText(s.lines!.join("\n"))}
+                    className="mt-2 text-sm font-medium text-spruce"
+                  >
+                    Copy the list
+                  </button>
+                ) : null}
+                {s.link ? (
+                  <a className="mt-2 block text-sm font-medium text-spruce underline" href={s.link.href} target="_blank" rel="noopener noreferrer">
+                    {s.link.name}
+                  </a>
+                ) : null}
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section>
           <h2 className="font-medium">See what changes the number</h2>
           <p className="mt-1 text-sm leading-relaxed text-muted">
             Each switch recalculates immediately. A page is shown only when it matches this case. The prices are placeholders, not a quote and not an offer.
@@ -1206,7 +1274,6 @@ function ResultView({
           ) : null}
         </section>
 
-
         <button type="button" onClick={onEdit} className="rounded-2xl border border-line bg-card px-4 py-3 text-left">
           <span className="block text-xs font-medium tracking-widest text-muted uppercase">This case</span>
           <span className="mt-1 block text-sm">
@@ -1216,6 +1283,14 @@ function ResultView({
           <span className="mt-1 block text-sm font-medium text-spruce">Edit answers</span>
         </button>
 
+        <ShareNote result={result} />
+
+        <Fold
+          title="Why this result"
+          line="The payback sum, what the year is made of, where the electric kilometres charge, and the worries the francs do not close."
+          open={folds.why}
+          onToggle={() => setFolds((f) => ({ ...f, why: !f.why }))}
+        >
         <section id="how-payback" className="rounded-2xl border border-line bg-card p-4">
           <h2 className="font-medium">What the payback year is for</h2>
           {result.paybackYears == null || result.saving <= 40 ? (
@@ -1268,43 +1343,14 @@ function ResultView({
             </button>
           </div>
         </section>
+        </Fold>
 
-        <section>
-          <h2 className="font-medium">Next steps</h2>
-          <ol className="mt-3 space-y-3">
-            {result.steps.map((s, i) => (
-              <li key={s.title} className="rounded-2xl border border-line bg-card px-4 py-3">
-                <p className="text-xs font-medium tracking-widest text-muted uppercase">Step {i + 1}</p>
-                <p className="mt-1 font-medium">{s.title}</p>
-                <p className="mt-1 text-sm leading-relaxed text-muted">{s.detail}</p>
-                {s.lines ? (
-                  <ul className="mt-2 list-disc space-y-1 pl-4 text-sm">
-                    {s.lines.map((line) => (
-                      <li key={line}>{line}</li>
-                    ))}
-                  </ul>
-                ) : null}
-                {s.lines ? (
-                  <button
-                    type="button"
-                    onClick={() => void navigator.clipboard.writeText(s.lines!.join("\n"))}
-                    className="mt-2 text-sm font-medium text-spruce"
-                  >
-                    Copy the list
-                  </button>
-                ) : null}
-                {s.link ? (
-                  <a className="mt-2 block text-sm font-medium text-spruce underline" href={s.link.href} target="_blank" rel="noopener noreferrer">
-                    {s.link.name}
-                  </a>
-                ) : null}
-              </li>
-            ))}
-          </ol>
-        </section>
-
-        <ShareNote result={result} />
-
+        <Fold
+          title="What went into the number"
+          line="Every figure with its tag and source, how it was decided, and the place."
+          open={folds.evidence}
+          onToggle={() => setFolds((f) => ({ ...f, evidence: !f.evidence }))}
+        >
         <section className="rounded-2xl border border-line bg-card">
           <h2 className="px-4 pt-4 font-medium">What went into the number</h2>
           <p className="px-4 pt-1 text-sm leading-relaxed text-muted">You means you tapped it. Default filled a gap and says so. Official is a dated public figure, not your bill. Model means a placeholder. A row with a control can be changed here, and the number updates.</p>
@@ -1367,6 +1413,16 @@ function ResultView({
           ) : null}
         </section>
 
+        <LocalPerson
+          canton={canton}
+          cantonState={cantonState}
+          onCanton={onCanton}
+          onPostcode={onPostcode}
+          place={result.official?.place ?? null}
+          grain={grain}
+        />
+        </Fold>
+
         <section id="plan" className="rounded-2xl border border-line bg-card p-4">
           <h2 className="font-medium">Keep the plan</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
@@ -1392,15 +1448,6 @@ function ResultView({
             </button>
           </div>
         </section>
-
-        <LocalPerson
-          canton={canton}
-          cantonState={cantonState}
-          onCanton={onCanton}
-          onPostcode={onPostcode}
-          place={result.official?.place ?? null}
-          grain={grain}
-        />
 
         <section>
           <h2 className="font-medium">Did something not make sense?</h2>
