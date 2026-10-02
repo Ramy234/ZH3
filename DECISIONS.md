@@ -15,3 +15,7 @@
 - BFE charging data has postcodes, not cantons, so `bev_reference` holds counts per postcode (one JSON text row per refresh). The app does not read it yet.
 - BFS pump-price file: layout not confirmed; the parser refuses to guess, and the branch stays idle until a URL is pasted.
 - Not done: cohort in the digest (the app sends none yet), a mail node for W2/W4/W5 (placeholders), the 3-layer redesign.
+- Design stage 1 and 2 (3 Oct 2026): start fits one phone screen; progress bar has one segment per question; each screen opens at its top; the result keeps the decision, the counterfactual card, next steps and the switches on the page, and puts the reasoning and the evidence in two closed folds; a sticky Share / Adjust / Details bar. Result page 8,400 -> about 4,500 px at 360 px.
+- `counterfactual.ts` adds no figure: the window is `RATES.horizon` and each lever is a re-run of `evaluate()`.
+- "Your ordinary week" strip is NOT built. It would need battery sizes the dataset does not hold, and a split of kilometres across days that no source gives. Add `bev_dataset` rows for battery size first, then build it.
+- Cloud-side checks ran against a copy without `.grok/`; 8 Grok-template tests fail there for that reason only. They pass in the repo.
