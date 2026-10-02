@@ -1,0 +1,419 @@
+{
+  "name": "W3 BEV reference refresh",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "content": "W3: reference refresh. NOT active. Targets bev_reference_test.\n\nThree branches, each parsed and written as insert-only rows; a failed fetch becomes an ok=false row, never a guessed number:\n 1. ElCom canton means for this year and next (SPARQL, monthly).\n 2. BFE charging points per postcode (open data, weekly). Large file: if the run runs out of memory, split it or run it on a bigger plan.\n 3. BFS pump prices (monthly). OFF: paste the CURRENT XLSX URL of \"LIK, Durchschnittspreise fuer Energie und Treibstoffe\" into 'BFS file URL' (the asset number changes), run by hand, and check 'Parse BFS' against the table before enabling.\n\nTo go live: run each branch by hand, switch on 'Insert reference', run once, look at bev_reference_test. Then rebuild with BEV_REFERENCE_TABLE=bev_reference (node n8n/build-w3.mjs), import, switch on the schedules.\nThe app does not read bev_reference yet; the dataset sheet (W2) stays the source for the model until it does.\n",
+        "width": 520,
+        "height": 420
+      },
+      "id": "read-first",
+      "name": "Read first",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -460
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "run-by-hand",
+      "name": "Run by hand",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "months",
+              "monthsInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "monthly",
+      "name": "Monthly",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        300
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "weekly",
+      "name": "Weekly",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        500
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n node \"ElCom queries\" (W3). One query per year: this year and next. ElCom publishes next year's tariffs in early September.\n// Canton means are the plain average of the municipal H4 totals, the same method the app uses today.\nconst year = new Date().getFullYear();\nconst query = (y) => `PREFIX elcom: <https://energy.ld.admin.ch/elcom/electricityprice/dimension/>\nPREFIX schema: <http://schema.org/>\nPREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\nSELECT ?canton (AVG(?total) AS ?avg) (COUNT(?total) AS ?n) WHERE {\n  GRAPH <https://lindas.admin.ch/elcom/electricityprice> {\n    ?obs elcom:municipality ?muni ;\n         elcom:category <https://energy.ld.admin.ch/elcom/electricityprice/category/H4> ;\n         elcom:product <https://energy.ld.admin.ch/elcom/electricityprice/product/standard> ;\n         elcom:period \"${y}\"^^xsd:gYear ;\n         elcom:total ?total .\n  }\n  ?muni schema:containedInPlace ?canton .\n  FILTER(STRSTARTS(STR(?canton), \"https://ld.admin.ch/canton/\"))\n} GROUP BY ?canton`;\nreturn [year, year + 1].map((y) => ({ json: { year: y, query: query(y) } }));\n"
+      },
+      "id": "elcom-queries",
+      "name": "ElCom queries",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ld.admin.ch/query",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/sparql-results+json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/sparql-query",
+        "body": "={{ $json.query }}",
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "elcom-fetch",
+      "name": "ElCom fetch",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n node \"Parse ElCom\" (W3). Keeps a value only if it is in a sane range. A failed or odd answer becomes an ok=false row.\n// It never fills a gap with a guess; the app keeps reading the newest ok row (view bev_reference_latest).\nconst CANTONS = ['ZH','BE','LU','UR','SZ','OW','NW','GL','ZG','FR','SO','BS','BL','SH','AR','AI','SG','GR','AG','TG','TI','VD','VS','NE','GE','JU'];\nconst SOURCE = 'https://ld.admin.ch/query';\nconst asked = $('ElCom queries').all().map((i) => i.json.year);\nconst out = [];\n$input.all().forEach((item, idx) => {\n  const year = String(asked[idx] ?? '');\n  const r = item.json;\n  const bindings = r.statusCode === 200 && r.body && r.body.results && Array.isArray(r.body.results.bindings) ? r.body.results.bindings : null;\n  if (!bindings || bindings.length === 0) {\n    out.push({ kind: 'elcom.canton', key: 'all', period: year, value: null, unit: 'Rp/kWh', detail: null, publisher: 'ElCom', source_url: SOURCE, ok: false, note: `no answer for ${year} (status ${r.statusCode ?? 'none'})` });\n    return;\n  }\n  for (const b of bindings) {\n    const num = Number(String(b.canton && b.canton.value).split('/').pop());\n    const code = CANTONS[num - 1];\n    const avg = Number(b.avg && b.avg.value);\n    const n = Number(b.n && b.n.value);\n    const good = code && Number.isFinite(avg) && avg >= 10 && avg <= 80 && n >= 1;\n    out.push({\n      kind: 'elcom.canton', key: code || `bfs-${num}`, period: year,\n      value: good ? Math.round(avg * 100) / 100 : null, unit: 'Rp/kWh', detail: null,\n      publisher: 'ElCom', source_url: SOURCE, ok: Boolean(good),\n      note: good ? `mean of ${n} municipal H4 totals` : `rejected: avg ${b.avg && b.avg.value}, n ${b.n && b.n.value}`,\n    });\n  }\n});\nreturn [{ json: { rows: out } }];\n"
+      },
+      "id": "parse-elcom",
+      "name": "Parse ElCom",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        740,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://data.geo.admin.ch/ch.bfe.ladestellen-elektromobilitaet/data/oicp/ch.bfe.ladestellen-elektromobilitaet.json",
+        "options": {
+          "timeout": 120000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "bfe-fetch",
+      "name": "BFE fetch",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        260,
+        500
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n node \"Parse BFE\" (W3). Counts public charging points (EVSE ids) per Swiss postcode from the BFE open data.\n// The file has addresses of charging points, not of people. Only counts per postcode are kept. Open data, attribution: BFE.\nconst SOURCE = 'https://data.geo.admin.ch/ch.bfe.ladestellen-elektromobilitaet/data/oicp/ch.bfe.ladestellen-elektromobilitaet.json';\nconst r = $input.first().json;\nconst day = new Date().toISOString().slice(0, 10);\nconst fail = (why) => [{ json: { rows: [{ kind: 'charging.plz', key: 'all', period: day, value: null, unit: 'EVSE', detail: null, publisher: 'BFE', source_url: SOURCE, ok: false, note: why }] } }];\nconst body = r.body;\nconst groups = body && Array.isArray(body.EVSEData) ? body.EVSEData : null;\nif (r.statusCode !== 200 || !groups) return fail(`no usable file (status ${r.statusCode ?? 'none'})`);\nconst seen = new Set();\nconst byPlz = {};\nlet total = 0;\nfor (const g of groups) {\n  const records = Array.isArray(g.EVSEDataRecord) ? g.EVSEDataRecord : [g];\n  for (const rec of records) {\n    const id = rec && rec.EvseID;\n    const plz = rec && rec.Address && String(rec.Address.PostalCode || '').trim();\n    if (!id || seen.has(id) || !/^\\d{4}$/.test(plz || '')) continue;\n    seen.add(id);\n    const fast = (Array.isArray(rec.ChargingFacilities) ? rec.ChargingFacilities : []).some((f) => Number(f.power) >= 50);\n    const cell = (byPlz[plz] ??= [0, 0]);\n    cell[0] += 1;\n    if (fast) cell[1] += 1;\n    total += 1;\n  }\n}\nif (total < 1000) return fail(`only ${total} charging points parsed; the file layout may have changed`);\nreturn [{ json: { rows: [{ kind: 'charging.plz', key: 'all', period: day, value: total, unit: 'EVSE', detail: JSON.stringify(byPlz), publisher: 'BFE', source_url: SOURCE, ok: true, note: 'detail: {postcode: [charging points, of which 50 kW or more]}' }] } }];\n"
+      },
+      "id": "parse-bfe",
+      "name": "Parse BFE",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n node \"BFS file URL\" (W3). Paste the CURRENT XLSX address of the BFS table here, between the quotes.\n// While it is empty, this branch stops here and nothing is fetched.\nconst url = '';\nif (!url) return [];\nreturn [{ json: { url } }];\n"
+      },
+      "id": "bfs-file-url",
+      "name": "BFS file URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.url }}",
+        "options": {
+          "timeout": 60000,
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "bfs-fetch",
+      "name": "BFS fetch",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        250
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "options": {
+          "headerRow": false
+        }
+      },
+      "id": "read-xlsx",
+      "name": "Read XLSX",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        740,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n node \"Parse BFS\" (W3). BFS publishes \"LIK, Durchschnittspreise fuer Energie und Treibstoffe\" as XLSX.\n// The layout was NOT confirmed when this was written. So it looks for the two rows by their label and the period by its header,\n// and gives up (ok=false) when it cannot find all three. Look at this node's output on the first run before switching on the insert.\nconst SOURCE = $('BFS file URL').first().json.url || 'https://www.bfs.admin.ch/';\nconst rowsIn = $input.all().map((i) => Object.values(i.json));\nconst fail = (why) => [{ json: { rows: [{ kind: 'pump', key: 'all', period: 'unknown', value: null, unit: 'CHF/l', detail: null, publisher: 'BFS', source_url: SOURCE, ok: false, note: why }] } }];\nif (!rowsIn.length) return fail('no rows read; the file URL is probably empty or old');\nconst periodOf = (cell) => {\n  const s = String(cell ?? '').trim();\n  let m = s.match(/^(\\d{4})[-/ ]?(\\d{2})$/); if (m) return `${m[1]}-${m[2]}`;\n  m = s.match(/^(\\d{1,2})\\.(\\d{4})$/); if (m) return `${m[2]}-${m[1].padStart(2, '0')}`;\n  return null;\n};\nconst find = (label) => rowsIn.find((r) => r.some((c) => typeof c === 'string' && label.test(c)));\nconst lastNumber = (row) => { for (let i = row.length - 1; i >= 0; i--) { const n = Number(String(row[i]).replace(',', '.')); if (Number.isFinite(n) && n > 0.5 && n < 5) return { n, col: i }; } return null; };\nconst header = rowsIn.find((r) => r.filter((c) => periodOf(c)).length >= 3);\nconst out = [];\nfor (const [key, label] of [['unleaded95', /(bleifrei|unleaded|sans plomb).*95|^benzin/i], ['diesel', /diesel/i]]) {\n  const row = find(label);\n  const hit = row && lastNumber(row);\n  const period = hit && header ? periodOf(header[hit.col]) : null;\n  out.push(hit && period\n    ? { kind: 'pump', key, period, value: Math.round(hit.n * 1000) / 1000, unit: 'CHF/l', detail: null, publisher: 'BFS', source_url: SOURCE, ok: true, note: 'last monthly value in the row; check against the BFS table' }\n    : { kind: 'pump', key, period: period || 'unknown', value: null, unit: 'CHF/l', detail: null, publisher: 'BFS', source_url: SOURCE, ok: false, note: `could not read ${key}: ${!row ? 'label not found' : !hit ? 'no price in the row' : 'no period header found'}` });\n}\nreturn [{ json: { rows: out } }];\n"
+      },
+      "id": "parse-bfs",
+      "name": "Parse BFS",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        980,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into bev_reference_test (kind, key, period, value, unit, detail, publisher, source_url, ok, note) select x.kind, x.key, x.period, x.value, x.unit, x.detail, x.publisher, x.source_url, x.ok, coalesce(x.note, '') from json_to_recordset($1::json) as x(kind text, key text, period text, value double precision, unit text, detail text, publisher text, source_url text, ok boolean, note text) returning id",
+        "options": {
+          "queryReplacement": "={{ [JSON.stringify($json.rows)] }}"
+        }
+      },
+      "id": "insert-reference",
+      "name": "Insert reference",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1240,
+        250
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "Tj1nxebs0zLxWTBj",
+          "name": "bev Postgres"
+        }
+      },
+      "disabled": true
+    }
+  ],
+  "connections": {
+    "Run by hand": {
+      "main": [
+        [
+          {
+            "node": "ElCom queries",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "BFE fetch",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "BFS file URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Monthly": {
+      "main": [
+        [
+          {
+            "node": "ElCom queries",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "BFS file URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weekly": {
+      "main": [
+        [
+          {
+            "node": "BFE fetch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ElCom queries": {
+      "main": [
+        [
+          {
+            "node": "ElCom fetch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ElCom fetch": {
+      "main": [
+        [
+          {
+            "node": "Parse ElCom",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse ElCom": {
+      "main": [
+        [
+          {
+            "node": "Insert reference",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BFE fetch": {
+      "main": [
+        [
+          {
+            "node": "Parse BFE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse BFE": {
+      "main": [
+        [
+          {
+            "node": "Insert reference",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BFS file URL": {
+      "main": [
+        [
+          {
+            "node": "BFS fetch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BFS fetch": {
+      "main": [
+        [
+          {
+            "node": "Read XLSX",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read XLSX": {
+      "main": [
+        [
+          {
+            "node": "Parse BFS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse BFS": {
+      "main": [
+        [
+          {
+            "node": "Insert reference",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

@@ -1,0 +1,292 @@
+{
+  "name": "W4 BEV source freshness",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "content": "W4: weekly source freshness. NOT active. Targets bev_source_checks_test.\n\nFetches each source URL already stored in bev_facts and bev_dataset (latest version), one at a time with a pause, and records the HTTP status and a hash of the visible text. It lists broken or changed sources for the team. It never edits a fact or a number.\n\nTo go live: (1) run by hand and read 'Compare'. (2) Switch on 'Insert checks', run once, look at bev_source_checks_test. (3) Rebuild with BEV_CHECKS_TABLE=bev_source_checks (node n8n/build-w4.mjs), import, replace the grey mail node, switch the schedule on.\nA page that needs a login or blocks robots shows as broken; that is a prompt to look, not a verdict.\n",
+        "width": 460,
+        "height": 360
+      },
+      "id": "read-first",
+      "name": "Read first",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -420
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "run-by-hand",
+      "name": "Run by hand",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "weekly",
+      "name": "Weekly",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        200
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select 'bev_facts' as origin, key as origin_key, url from bev_facts where url is not null and url <> ''\nunion all\nselect 'bev_dataset', key, source_url from bev_dataset where source_url is not null and dataset_version = (select dataset_version from bev_dataset order by valid_from desc, dataset_version desc limit 1)",
+        "options": {}
+      },
+      "id": "urls-to-check",
+      "name": "URLs to check",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        260,
+        100
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "Tj1nxebs0zLxWTBj",
+          "name": "bev Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select distinct on (url) url, content_hash from bev_source_checks_test order by url, checked_at desc, id desc",
+        "options": {}
+      },
+      "id": "previous-checks",
+      "name": "Previous checks",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        500,
+        100
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "Tj1nxebs0zLxWTBj",
+          "name": "bev Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n node \"Unique URLs\" (W4). Takes the URLs we already hold, keeps each once, and refuses anything that is not a public https page.\n// Nothing outside our own tables is ever fetched.\nconst rows = $('URLs to check').all().map((i) => i.json).filter((r) => r.url);\nconst prev = new Map($('Previous checks').all().map((i) => i.json).filter((r) => r.url).map((r) => [r.url, r.content_hash]));\nconst seen = new Map();\nfor (const r of rows) {\n  let u;\n  try { u = new URL(String(r.url).trim()); } catch { continue; }\n  const host = u.hostname.toLowerCase();\n  const local = host === 'localhost' || /^(127\\.|10\\.|192\\.168\\.|169\\.254\\.|172\\.(1[6-9]|2\\d|3[01])\\.)/.test(host) || !host.includes('.');\n  if (u.protocol !== 'https:' || local || u.username || u.password) continue;\n  const url = u.toString();\n  if (!seen.has(url)) seen.set(url, { url, origin: r.origin, origin_key: r.origin_key, previous_hash: prev.get(url) ?? null });\n}\nreturn [...seen.values()].map((json) => ({ json }));\n"
+      },
+      "id": "unique-urls",
+      "name": "Unique URLs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        740,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "BEV-Navigator-source-check (HSG student project; contact via project team)"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1500
+            }
+          },
+          "redirect": {
+            "redirect": {
+              "maxRedirects": 5
+            }
+          },
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "fetch-page",
+      "name": "Fetch page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        980,
+        100
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n node \"Compare\" (W4). Hashes the visible text of each page and compares it with the previous check.\n// \"changed\" means the page text changed. Pages with dates or counters change often, so look before you act.\n// This node edits nothing. It only records and lists.\nconst cyrb53 = (str, seed = 0) => {\n  let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;\n  for (let i = 0; i < str.length; i++) {\n    const ch = str.charCodeAt(i);\n    h1 = Math.imul(h1 ^ ch, 2654435761);\n    h2 = Math.imul(h2 ^ ch, 1597334677);\n  }\n  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);\n  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);\n  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16).padStart(14, '0');\n};\nconst visible = (html) => String(html ?? '')\n  .replace(/<(script|style|noscript)[\\s\\S]*?<\\/\\1>/gi, ' ')\n  .replace(/<[^>]+>/g, ' ')\n  .replace(/&nbsp;/g, ' ')\n  .replace(/\\s+/g, ' ')\n  .trim()\n  .toLowerCase()\n  .slice(0, 200000);\nconst targets = $('Unique URLs').all().map((i) => i.json);\nconst results = $input.all().map((i) => i.json);\nconst rows = targets.map((t, idx) => {\n  const r = results[idx] ?? {};\n  const status = Number.isInteger(r.statusCode) ? r.statusCode : null;\n  const text = visible(r.body);\n  const hash = status && status < 400 && text ? cyrb53(text) : null;\n  const error = r.error ? String(r.error.message ?? r.error).slice(0, 200) : status && status >= 400 ? `HTTP ${status}` : !hash ? 'empty page' : null;\n  return {\n    origin: t.origin, origin_key: t.origin_key, url: t.url,\n    http_status: status, content_hash: hash,\n    changed: Boolean(hash && t.previous_hash && hash !== t.previous_hash),\n    error,\n  };\n});\nconst broken = rows.filter((r) => r.error);\nconst changed = rows.filter((r) => r.changed);\nconst text = [\n  `BEV Navigator source check: ${rows.length} URLs, ${broken.length} broken, ${changed.length} changed.`,\n  ...broken.map((r) => `BROKEN  ${r.origin}/${r.origin_key}  ${r.url}  (${r.error})`),\n  ...changed.map((r) => `CHANGED ${r.origin}/${r.origin_key}  ${r.url}`),\n].join('\\n');\nreturn [{ json: { rows, text, broken: broken.length, changed: changed.length } }];\n"
+      },
+      "id": "compare",
+      "name": "Compare",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1220,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into bev_source_checks_test (origin, origin_key, url, http_status, content_hash, changed, error) select x.origin, x.origin_key, x.url, x.http_status, x.content_hash, x.changed, x.error from json_to_recordset($1::json) as x(origin text, origin_key text, url text, http_status integer, content_hash text, changed boolean, error text) returning id",
+        "options": {
+          "queryReplacement": "={{ [JSON.stringify($json.rows)] }}"
+        }
+      },
+      "id": "insert-checks",
+      "name": "Insert checks",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1460,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "Tj1nxebs0zLxWTBj",
+          "name": "bev Postgres"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {},
+      "id": "send-list-to-team-wire-a-mail-node-",
+      "name": "Send list to team (wire a mail node)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1460,
+        200
+      ]
+    }
+  ],
+  "connections": {
+    "Run by hand": {
+      "main": [
+        [
+          {
+            "node": "URLs to check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weekly": {
+      "main": [
+        [
+          {
+            "node": "URLs to check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "URLs to check": {
+      "main": [
+        [
+          {
+            "node": "Previous checks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Previous checks": {
+      "main": [
+        [
+          {
+            "node": "Unique URLs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unique URLs": {
+      "main": [
+        [
+          {
+            "node": "Fetch page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch page": {
+      "main": [
+        [
+          {
+            "node": "Compare",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compare": {
+      "main": [
+        [
+          {
+            "node": "Insert checks",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send list to team (wire a mail node)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

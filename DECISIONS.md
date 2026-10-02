@@ -10,3 +10,8 @@
 - Dataset versions are named `v-YYYY-MM-DD-hhmm` (lowercase, to pass the existing n8n `dataset` pattern). The seed version stays `placeholder-2026-10-02`.
 - W2 is a JSON file (`n8n/w2-dataset-publish.workflow.json`), inactive, targeting `bev_dataset_test`. The Google Sheets credential is not stored; Martin attaches it in n8n.
 - Google Sheet "BEV dataset" was created in the connected Drive from `n8n/sheet/bev-dataset-template.csv`.
+- Step 3: W1 v2, W3, W4, W5 are JSON files built from `n8n/build-w*.mjs`; the live-synced draft (`build.mjs`) is untouched. Shared shape lives in `n8n/lib/`.
+- Stored sessions are read through the view `bev_sessions_flat` (migration 0012). No other code parses the payload text. The ending is derived from `paybackYears <= 8`, not from `withinHorizon`.
+- BFE charging data has postcodes, not cantons, so `bev_reference` holds counts per postcode (one JSON text row per refresh). The app does not read it yet.
+- BFS pump-price file: layout not confirmed; the parser refuses to guess, and the branch stays idle until a URL is pasted.
+- Not done: cohort in the digest (the app sends none yet), a mail node for W2/W4/W5 (placeholders), the 3-layer redesign.
