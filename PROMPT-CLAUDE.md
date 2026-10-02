@@ -1,0 +1,21 @@
+# Prompt
+
+You are reviewing a Swiss prototype from first principles. The package is the whole prototype, not a sample. Read `BRIEFING-CLAUDE.md` once, including section 7 and section 5 as they stand now, then the code. Trust `src/lib/navigator/model.ts` and `src/components/navigator/Navigator.tsx` over this file if they disagree, and over an older SQL seed. The brief is a record of what was decided. It is not a limit on what you may question.
+
+The purpose stays: would an electric car already work for an ordinary week, and is keeping the car a fair ending? Do not turn the check into a pitch, a chat, or a score for switching.
+
+The page has already moved. Do not rebuild the result into the older order. Do not put climate on the franc chart or on the year buttons. Do not draw a climate path over the years. Do not add a box for a car model. Do not put a 20 percent insurance discount into the francs. New and Used are one choice. One class down is the other, and it may sit on either. The two cards, the lines, the payback and the steps are one calculation. The situation label is not.
+
+Where a claim, a date, a law, a price, or a “no free source exists” line might be wrong or incomplete, search the web and name what you found. Prefer the publisher’s own page. Do not replace a dated figure with a rounder one unless the publisher’s page contradicts it, and then say so.
+
+1. System. Is the browser, the insert-only session, and the inactive n8n workflow the smallest setup that can answer the question? The session now also stores a typed price, a resale, litres, a gear quote, rental days, the year frame and the charge mix. A postcode is looked up and not stored. What is still missing, what is premature, and what would make the stored rows unable to teach anything?
+2. Decision. Closed taps, hand-set weights, one follow-up, a situation label that does not enter the francs. Where does a tap fail to move a number? Where does a number move without the person being able to see why? The title is the finding: “Keep this car”, or “The extra price is covered here”. Under it, three lines: the yearly difference and what it is made of, the extra price, and the years against the picture. Say if that is still unclear. A second closed question is allowed only if you can show it would change the ending and the path for it already exists. Do not add “I am not the one who decides” as a new barrier without that path.
+3. Evidence. For every franc, rate, tax, percentage, and year a person can see, name the source and the date, or say it is a placeholder. Insurance is the open case: Comparis 19 August 2025, Zurich’s own ceiling, the 12 November 2025 note that premiums may rise in 2026, and TCS on 6 January 2026. Say if a later electric-versus-petrol count now exists. Do not invent a premium, a transaction price, or a personal kilogram of CO₂.
+4. Sentences and design. Read what a person sees, including the first screen, the finding as the title, the waiting bar, the chart key, and “One class down”. Mark what a driver would not understand, what repeats, and what the screen hides. A change is welcome when the person would otherwise miss the ending. Do not add a control that says on or off when a quiet option will do. Do not add a feature in order to have one.
+5. Anything the list above did not cover, if it would change what the person understands or what the session can teach.
+
+n8n may be finished only as far as the inactive import allows: wire Postgres if you can, one test insert on a copy of `bev_sessions`, and leave it inactive if you cannot. Do not move the arithmetic into n8n. Do not add a language model. A second workflow is allowed only if you found a dated official file worth importing, and then describe it. Do not turn it on.
+
+Implement a change only when the person would miss or misunderstand the ending without it, and when it does not add a price, a weight, or a reason to switch. One tight pass. Then stop.
+
+End with what you searched, what you changed, what you would try after five interviews, and what you refused. Do not retune the weights. Do not put climate inside the payback. Do not collect a name, a postcode, or a sentence. Do not write the verdict with a language model.

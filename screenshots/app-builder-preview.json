@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "BEV Navigator",
+      "hasCanvas": false,
+      "bodyTextLen": 1136,
+      "bodyTextHash": "efa9c42b38c33eafad2391c5a94648dcdc49b723498aefedf03befa2a8c7cfb4",
+      "bodyTextPrefix": "N8N · FIVE NODES The same path the workflow will run. 1 You · Fo",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "BEV Navigator",
+      "hasCanvas": false,
+      "bodyTextLen": 789,
+      "bodyTextHash": "33b937b73e74cee9af5218a54b205a397aee0e12279600adf4bcb7ae0f078d00",
+      "bodyTextPrefix": "ORDINARY WEEK · 1 OF 6 You Sort Price Options Plan Would an elec",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}

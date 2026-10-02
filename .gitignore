@@ -1,0 +1,11 @@
+node_modules/
+.env.local
+.env*.local
+.tanstack/
+.vercel/
+.output/
+dist/
+.grok/preview.log
+*.log
+bev-navigator-package*.zip
+bev-navigator-claude-code.zip

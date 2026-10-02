@@ -1,0 +1,204 @@
+{
+  "name": "ZurichProjectFristDraft",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "Do not publish (activate) yet.\n\nTESTED 2 Oct 2026, 23:06: 'Test by hand' inserted one row into bev_sessions_test in Supabase project ZH3 (credential 'bev Postgres', row-level security on). Junk in the sample (postcode, sentence, script tag) was dropped. The Postgres step was switched off again afterwards.\n\nThe app still stores sessions itself (session.ts). This workflow is the same insert for when n8n takes over. It must not reprice the car, write a sentence, or call a language model.\n\nNext: create bev_sessions in ZH3 (same columns, RLS on), change the table name in this step, let the app post to the webhook, then publish.\n\nCode source: n8n/src/*.js, built by n8n/build.mjs.",
+        "height": 400,
+        "width": 460
+      },
+      "id": "5a0b3ac1-772c-4bbe-a83b-3f333e6a0a88",
+      "name": "Read first",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        144,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "bev-session",
+        "options": {}
+      },
+      "id": "ffdbe186-2181-4ed2-aea0-11ea14293ee2",
+      "name": "Form trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        416,
+        800
+      ],
+      "webhookId": "bev-session"
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n node \"TypeSafe choice\". Closed lists only. Rebuilds the same payload shape that session.ts stores,\n// so a row inserted here and a row inserted by the app can be counted together.\n// It does not price the car, write a sentence, or call a language model.\nconst body = $input.first().json.body ?? $input.first().json;\nif (body.workflow !== 'bev-navigator') throw new Error('Wrong workflow');\nconst stage = body.stage === 'mid' ? 'mid' : body.stage === 'final' ? 'final' : null;\nif (!stage) throw new Error('Bad stage');\nconst clientSession = String(body.clientSession ?? '');\nif (!/^[0-9a-f-]{16,80}$/i.test(clientSession)) throw new Error('Bad session');\nconst ONE_OF = {\n  barrier: ['charging', 'cost', 'trips', 'trust', 'unsure'],\n  carClass: ['small', 'compact', 'mid', 'suv', 'van'],\n  fuel: ['petrol', 'diesel', 'hybrid', 'electric'],\n  use: ['commute', 'everyday', 'long', 'holiday', 'towing', 'business'],\n  kmBand: ['lt10', 'mid', 'gt20', 'unsure'],\n  parking: ['house', 'own', 'shared', 'none', 'unsure'],\n  workAccess: ['yes', 'ask', 'no'],\n  tripFreq: ['rare', 'yearly', 'often'],\n  usedStance: ['yes', 'new', 'no'],\n  costSting: ['price', 'month', 'both'],\n  mobileInterest: ['yes', 'no'],\n  worry: ['tenant', 'winter', 'refuse'],\n  unclear: ['km', 'payback', 'price', 'wording'],\n  persona: ['urbanRenter', 'familyHome', 'distance', 'cost', 'skeptic', 'occasional'],\n  fact: ['two-for-one', 'mobile-charger', 'battery', 'workplace', 'public-tariff', 'tenant-right', 'winter', 'not-for-me', 'canton-tax', 'local-grant'],\n};\nconst one = (v, list) => (typeof v === 'string' && list.includes(v) ? v : null);\nconst money = (v) => {\n  const n = typeof v === 'number' ? v : NaN;\n  return Number.isFinite(n) ? Math.max(-500000, Math.min(500000, Math.round(n))) : 0;\n};\nconst nodes = Array.isArray(body.nodes) ? body.nodes : [];\nconst find = (id) => nodes.find((n) => n && n.id === id) ?? {};\nconst classify = find('classify').output ?? {};\nconst a = body.answers ?? {};\nconst mix = a.mix && ['home', 'work', 'public'].every((k) => typeof a.mix[k] === 'number' && a.mix[k] >= 0 && a.mix[k] <= 1)\n  ? { home: a.mix.home, work: a.mix.work, public: a.mix.public }\n  : null;\nconst opened = [];\nfor (const k of Array.isArray(body.claimsOpened) ? body.claimsOpened : []) {\n  if (one(k, ONE_OF.fact) && !opened.includes(k)) opened.push(k);\n  if (opened.length >= 12) break;\n}\nreturn [{\n  json: {\n    clientSession,\n    stage,\n    raw: { price: find('price').output ?? {}, toggles: find('solutions').output ?? {} },\n    payload: {\n      workflow: 'bev-navigator',\n      stage,\n      clientSession,\n      nodes: [\n        { id: 'barrier', n8n: 'Form trigger', engine: 'user', output: one(find('barrier').output, ONE_OF.barrier) },\n        {\n          id: 'classify', n8n: 'TypeSafe choice', engine: 'rules',\n          output: { situation: one(classify.situation, ONE_OF.persona), confidence: Math.max(0, Math.min(1, Number(classify.confidence) || 0)) },\n        },\n      ],\n      claimsOpened: opened,\n      fromSample: body.fromSample === true,\n      answers: {\n        barrier: one(a.barrier, ONE_OF.barrier),\n        carClass: one(a.carClass, ONE_OF.carClass),\n        fuel: one(a.fuel, ONE_OF.fuel),\n        uses: Array.isArray(a.uses) ? a.uses.filter((u) => one(u, ONE_OF.use)).slice(0, 6) : [],\n        kmBand: one(a.kmBand, ONE_OF.kmBand),\n        parking: one(a.parking, ONE_OF.parking),\n        workAccess: one(a.workAccess, ONE_OF.workAccess),\n        tripFreq: one(a.tripFreq, ONE_OF.tripFreq),\n        usedStance: one(a.usedStance, ONE_OF.usedStance),\n        costSting: one(a.costSting, ONE_OF.costSting),\n        mobileInterest: one(a.mobileInterest, ONE_OF.mobileInterest),\n        worry: one(a.worry, ONE_OF.worry),\n        unclear: one(a.unclear, ONE_OF.unclear),\n        listPrice: a.listPrice == null ? null : money(a.listPrice),\n        resalePrice: a.resalePrice == null ? null : money(a.resalePrice),\n        keepYears: [4, 12, 16, 24, 32].includes(a.keepYears) ? a.keepYears : null,\n        mix,\n        litres: typeof a.litres === 'number' && a.litres >= 3 && a.litres <= 14 ? Math.round(a.litres * 10) / 10 : null,\n        gearQuote: a.gearQuote == null ? null : money(a.gearQuote),\n        rentDays: [0, 2, 4, 8].includes(a.rentDays) ? a.rentDays : null,\n      },\n    },\n  },\n}];\n"
+      },
+      "id": "63fa2ca3-ad40-4b3f-8e8b-752da496ace5",
+      "name": "TypeSafe choice",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n node \"Code\". The francs were computed in the browser. This node checks they arrived and are numbers.\n// It copies them. It never recalculates them.\nconst row = $input.first().json;\nconst p = row.raw && row.raw.price;\nif (!p || typeof p !== 'object') throw new Error('Missing price');\nconst money = (v) => {\n  const n = typeof v === 'number' ? v : NaN;\n  if (!Number.isFinite(n)) throw new Error('Price field is not a number');\n  return Math.max(-500000, Math.min(500000, Math.round(n)));\n};\nconst cantons = ['ZH','BE','LU','UR','SZ','OW','NW','GL','ZG','FR','SO','BS','BL','SH','AR','AI','SG','GR','AG','TG','TI','VD','VS','NE','GE','JU'];\nconst canton = typeof p.canton === 'string' && cantons.includes(p.canton) ? p.canton : null;\nconst homeSource = typeof p.homeSource === 'string' && /^(placeholder|elcom-h4-\\d{4}(-[A-Z]{2}|-municipality)?)$/.test(p.homeSource) ? p.homeSource : 'placeholder';\nconst price = {\n  annualKeep: money(p.annualKeep),\n  annualSwap: money(p.annualSwap),\n  cash: money(p.cash),\n  saving: money(p.saving),\n  paybackYears: p.paybackYears == null || !Number.isFinite(Number(p.paybackYears)) ? null : Math.round(Number(p.paybackYears) * 10) / 10,\n  withinHorizon: p.withinHorizon === true,\n  dataset: typeof p.dataset === 'string' && /^[a-z0-9-]{1,40}$/.test(p.dataset) ? p.dataset : null,\n  model: typeof p.model === 'string' && /^[a-z0-9-]{1,40}$/.test(p.model) ? p.model : null,\n  cited: ['tco-2023'],\n  homeSource,\n  canton,\n};\nrow.payload.nodes.push({ id: 'price', n8n: 'Code', engine: 'browser', output: price });\nreturn [{ json: row }];\n"
+      },
+      "id": "82b0c311-c433-4036-91b8-253c62f5264f",
+      "name": "Code",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n node \"Switch\". Rejects any key outside the eight switches, then stores them as booleans.\nconst row = $input.first().json;\nconst keys = ['home', 'work', 'rightSize', 'used', 'publicPlan', 'tariff', 'pv', 'insDiscount'];\nconst t = row.raw && row.raw.toggles;\nif (!t || typeof t !== 'object') throw new Error('Missing switches');\nfor (const key of Object.keys(t)) if (!keys.includes(key)) throw new Error('Unexpected switch');\nconst toggles = {};\nfor (const key of keys) toggles[key] = t[key] === true;\ntoggles.insDiscount = false; // removed from the page on 2 October 2026; kept as a key so old and new rows line up\nrow.payload.nodes.push({ id: 'solutions', n8n: 'Switch', engine: 'finite', output: toggles });\nrow.payload.nodes.push({ id: 'analytics', n8n: 'Postgres', engine: 'batch', output: row.stage });\nreturn [{ json: { clientSession: row.clientSession, stage: row.stage, payload: row.payload } }];\n"
+      },
+      "id": "a025da07-9626-4e5f-9f6d-fc0e1d639ea4",
+      "name": "Switch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1088,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into bev_sessions_test (id, client_session, stage, payload) values (gen_random_uuid()::text, $1, $2, $3) returning id",
+        "options": {
+          "queryReplacement": "={{ [$json.clientSession, $json.stage, JSON.stringify($json.payload)] }}"
+        }
+      },
+      "id": "eaa17d77-1996-4629-9b2c-6f2dbb575dfe",
+      "name": "Postgres",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1312,
+        704
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "Tj1nxebs0zLxWTBj",
+          "name": "bev Postgres"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {},
+      "id": "e1022da1-8f23-478e-9b72-6d47d2ccc5bd",
+      "name": "Test by hand",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        192,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sample session from the worked example, with junk added on purpose (a postcode, a sentence, a script tag).\n// After a run, check the Switch output: the junk must be gone. Postgres stays unconnected until a test table exists.\nreturn [{ json: { body: {\n \"workflow\": \"bev-navigator\",\n \"stage\": \"final\",\n \"clientSession\": \"0f8e2c1a-1111-4a2b-9c3d-123456789abc\",\n \"nodes\": [\n  {\n   \"id\": \"barrier\",\n   \"output\": \"charging\"\n  },\n  {\n   \"id\": \"classify\",\n   \"output\": {\n    \"situation\": \"urbanRenter\",\n    \"confidence\": 0.62\n   }\n  },\n  {\n   \"id\": \"price\",\n   \"output\": {\n    \"annualKeep\": 3854,\n    \"annualSwap\": 2081,\n    \"cash\": 27900,\n    \"saving\": 1773,\n    \"paybackYears\": 15.7,\n    \"withinHorizon\": false,\n    \"dataset\": \"placeholder-2026-10-02\",\n    \"model\": \"2026-10-02-r2\",\n    \"homeSource\": \"elcom-h4-2026-ZH\",\n    \"canton\": \"ZH\"\n   }\n  },\n  {\n   \"id\": \"solutions\",\n   \"output\": {\n    \"home\": true,\n    \"work\": true,\n    \"rightSize\": false,\n    \"used\": false,\n    \"publicPlan\": false,\n    \"tariff\": false,\n    \"pv\": false,\n    \"insDiscount\": false\n   }\n  }\n ],\n \"claimsOpened\": [\n  \"battery\",\n  \"I live at Seestrasse 4\"\n ],\n \"fromSample\": true,\n \"answers\": {\n  \"barrier\": \"charging\",\n  \"carClass\": \"compact\",\n  \"fuel\": \"diesel\",\n  \"uses\": [\n   \"commute\",\n   \"everyday\",\n   \"<script>\"\n  ],\n  \"kmBand\": \"mid\",\n  \"parking\": \"shared\",\n  \"workAccess\": \"ask\",\n  \"postcode\": \"8001\",\n  \"note\": \"call me\"\n }\n} } }];"
+      },
+      "id": "834a0f7c-0610-4b7d-b5e5-25962954f4bc",
+      "name": "Sample session",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        608
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Form trigger": {
+      "main": [
+        [
+          {
+            "node": "TypeSafe choice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TypeSafe choice": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Postgres",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test by hand": {
+      "main": [
+        [
+          {
+            "node": "Sample session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sample session": {
+      "main": [
+        [
+          {
+            "node": "TypeSafe choice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "997472d6-b1ab-43b2-b47b-36ed2f606231",
+  "meta": {
+    "instanceId": "1913001f8eb0093589eaa41ac56987da7bf4487eeef4ada11e29c51af436b7b9"
+  },
+  "nodeGroups": [],
+  "id": "01ebguVsWaalZaJY",
+  "tags": []
+}

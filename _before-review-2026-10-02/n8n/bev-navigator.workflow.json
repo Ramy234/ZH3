@@ -1,0 +1,89 @@
+{
+  "name": "BEV navigator session",
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "nodes": [
+    {
+      "parameters": {
+        "content": "Import only. Do not activate until Postgres credentials exist.\n\nThe browser still does the arithmetic. This workflow checks the closed fields and inserts one row into bev_sessions. It must not reprice the car, write a sentence, or call a language model.\n\nPOST the JSON already built in session.ts to /webhook/bev-session.\nConnect the Postgres credential named on the last node, then run one test. Leave it inactive until that test inserts a single row.",
+        "height": 280,
+        "width": 420
+      },
+      "id": "note",
+      "name": "Read first",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-40, -320]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "bev-session",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "a1-webhook",
+      "name": "Form trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "bev-session"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body ?? $input.first().json;\nif (body.workflow !== 'bev-navigator') throw new Error('Wrong workflow');\nconst stage = body.stage === 'mid' ? 'mid' : body.stage === 'final' ? 'final' : null;\nif (!stage) throw new Error('Bad stage');\nconst clientSession = String(body.clientSession ?? '');\nif (!/^[0-9a-f-]{16,80}$/i.test(clientSession)) throw new Error('Bad session');\nconst situations = ['urbanRenter','familyHome','distance','cost','skeptic','occasional'];\nconst classify = (body.nodes ?? []).find((n) => n.id === 'classify');\nconst situation = classify?.output?.situation ?? null;\nif (situation != null && !situations.includes(situation)) throw new Error('Bad situation');\nconst price = (body.nodes ?? []).find((n) => n.id === 'price')?.output ?? {};\nfunction money(n) {\n  const x = Number(n);\n  if (!Number.isFinite(x)) return 0;\n  return Math.max(-500000, Math.min(500000, Math.round(x)));\n}\nconst togglesIn = (body.nodes ?? []).find((n) => n.id === 'solutions')?.output ?? {};\nconst allowed = ['home','work','rightSize','used','publicPlan','tariff','pv','insDiscount'];\nconst toggles = {};\nfor (const key of allowed) toggles[key] = Boolean(togglesIn[key]);\nconst id = crypto.randomUUID();\nreturn [{\n  json: {\n    id,\n    clientSession,\n    stage,\n    payload: {\n      workflow: 'bev-navigator',\n      stage,\n      clientSession,\n      situation,\n      confidence: Math.max(0, Math.min(1, Number(classify?.output?.confidence) || 0)),\n      price: {\n        annualKeep: money(price.annualKeep),\n        annualSwap: money(price.annualSwap),\n        cash: money(price.cash),\n        saving: money(price.saving),\n        paybackYears: price.paybackYears == null || !Number.isFinite(Number(price.paybackYears)) ? null : Math.round(Number(price.paybackYears) * 10) / 10,\n        withinHorizon: Boolean(price.withinHorizon),\n        dataset: 'placeholder-2026-10-02',\n        homeSource: typeof price.homeSource === 'string' ? price.homeSource.slice(0, 80) : 'placeholder',\n        canton: price.canton ?? null\n      },\n      toggles,\n      claimsOpened: Array.isArray(body.claimsOpened) ? body.claimsOpened.slice(0, 12) : [],\n      answers: body.answers ?? {}\n    }\n  }\n}];"
+      },
+      "id": "a2-check",
+      "name": "TypeSafe choice",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [280, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const row = $input.first().json;\n// Francs were computed in the browser. This node checks they arrived and does not replace them.\nif (!row.payload || !row.payload.price) throw new Error('Missing price');\nreturn [{ json: row }];"
+      },
+      "id": "a3-price",
+      "name": "Code",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [560, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const row = $input.first().json;\nconst keys = ['home','work','rightSize','used','publicPlan','tariff','pv','insDiscount'];\nfor (const key of Object.keys(row.payload.toggles)) {\n  if (!keys.includes(key)) throw new Error('Unexpected switch');\n}\nreturn [{ json: row }];"
+      },
+      "id": "a4-switch",
+      "name": "Switch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [840, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into bev_sessions (id, client_session, stage, payload) values ($1, $2, $3, $4) returning id",
+        "options": {
+          "queryReplacement": "={{$json.id}},{{$json.clientSession}},{{$json.stage}},{{JSON.stringify($json.payload)}}"
+        }
+      },
+      "id": "a5-postgres",
+      "name": "Postgres",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1120, 0],
+      "credentials": {
+        "postgres": {
+          "id": "SET_ME",
+          "name": "bev Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Form trigger": { "main": [[{ "node": "TypeSafe choice", "type": "main", "index": 0 }]] },
+    "TypeSafe choice": { "main": [[{ "node": "Code", "type": "main", "index": 0 }]] },
+    "Code": { "main": [[{ "node": "Switch", "type": "main", "index": 0 }]] },
+    "Switch": { "main": [[{ "node": "Postgres", "type": "main", "index": 0 }]] }
+  }
+}
