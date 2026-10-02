@@ -19,6 +19,12 @@ import {
 } from "./grok-pwa-shared.mjs";
 import { renderInstallPage } from "./grok-pwa-plugin.mjs";
 
+// Hermetic: the helpers read src/lib/og/site.json and public/og.* from the cwd. Run in an empty dir so this app's own identity does not leak in.
+import { mkdtempSync as __mk } from "node:fs";
+import { tmpdir as __tmp } from "node:os";
+import { join as __join } from "node:path";
+process.chdir(__mk(__join(__tmp(), "grok-pwa-test-")));
+
 const TEMPLATE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 test("injects before </head>", () => {
