@@ -58,3 +58,7 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+h1[tabindex="-1"]:focus {
+  outline: none;
+}

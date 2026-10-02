@@ -13,7 +13,7 @@ for (const width of [360, 390]) {
   await page.goto(url, { waitUntil: "networkidle" });
   const check = async (label) => {
     const wide = await page.evaluate(() => {
-      const inner = [...document.querySelectorAll("div")].filter((d) => getComputedStyle(d).overflowY === "auto").map((d) => d.scrollWidth - d.clientWidth);
+      const inner = [...document.querySelectorAll("div")].filter((d) => getComputedStyle(d).overflowY === "auto" && !d.closest("[data-hscroll]")).map((d) => d.scrollWidth - d.clientWidth);
       return Math.max(document.documentElement.scrollWidth - innerWidth, ...inner);
     });
     console.log(`${width}px ${label}: ${wide <= 0 ? "ok" : `${wide}px too wide`}`);

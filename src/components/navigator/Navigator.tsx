@@ -5,6 +5,8 @@ import { CostChart } from "@/components/navigator/CostChart";
 import { ClimateChart } from "@/components/navigator/ClimateChart";
 import { FACTS, FACT_VIEW, type Fact, type FactKey } from "@/lib/navigator/facts";
 import { applyDataset } from "@/lib/navigator/dataset";
+import { cardBlob } from "@/lib/navigator/share-card";
+import { revisitIcs } from "@/lib/navigator/revisit";
 import { wouldHaveToBeTrue, type Counterfactual, type LeverKey } from "@/lib/navigator/counterfactual";
 import { CANTONS, listFacts, loadDataset, cantonHomeRate, lookupPostcode, officialHomeRate, saveSession, type OfficialHome, type SessionBag } from "@/lib/navigator/session";
 import {
@@ -413,11 +415,40 @@ export function Navigator() {
     return () => window.clearTimeout(t);
   }, [autoKey]);
 
+  const [showRail, setShowRail] = useState(false);
+  useEffect(() => {
+    setShowRail(new URLSearchParams(window.location.search).has("workflow"));
+  }, []);
+  const firstScreen = useRef(true);
   useEffect(() => {
     scroller.current?.scrollTo({ top: 0 });
+    // Keyboard and screen-reader users land on the new screen's title. Not on first load.
+    if (firstScreen.current) {
+      firstScreen.current = false;
+      return;
+    }
+    const title = scroller.current?.querySelector("h1");
+    title?.setAttribute("tabindex", "-1");
+    title?.focus({ preventScroll: true });
   }, [step]);
 
   const soFar = showSoFar && result ? <SoFar result={result} step={step} /> : null;
+
+  const recapFor = (upTo: Step): ReactNode => {
+    const order: Step[] = ["barrier", "parking", "class", "fuel", "km"];
+    const label: Record<string, string | null> = {
+      barrier: answers.barrier ? labelBarrier(answers.barrier) : null,
+      parking: answers.parking ? (PARKING.find((o) => o.id === answers.parking)?.title ?? null) : null,
+      class: answers.carClass ? labelClass(answers.carClass) : null,
+      fuel: answers.fuel ? labelFuel(answers.fuel) : null,
+      km: answers.km ? (KM_BANDS.find((o) => o.id === answers.km)?.title ?? null) : null,
+    };
+    const items = order
+      .slice(0, order.indexOf(upTo) === -1 ? order.length : order.indexOf(upTo))
+      .filter((st) => label[st])
+      .map((st) => ({ label: label[st] as string, step: st }));
+    return <Recap items={items} onJump={(st) => setStep(st)} />;
+  };
 
   let body: ReactNode = null;
   if (step === "barrier") {
@@ -432,6 +463,7 @@ export function Navigator() {
   } else if (step === "parking") {
     body = (
       <Single
+        recap={recapFor("parking")}
         step={step}
         title="Where does the car sleep?"
         hint="The next screen shows a payback: years until the extra money to switch is covered by a lower cost to run. Until you correct the car, it uses a typical one."
@@ -451,6 +483,7 @@ export function Navigator() {
   } else if (step === "class") {
     body = (
       <Single
+        recap={recapFor("class")}
         step={step}
         title="What do you drive now?"
         hint="Class is enough. No number plate."
@@ -463,6 +496,7 @@ export function Navigator() {
   } else if (step === "fuel") {
     body = (
       <Single
+        recap={recapFor("fuel")}
         step={step}
         title="What does it run on?"
         hint="Already electric means the check looks at size and charging. It does not try to sell you a switch."
@@ -475,9 +509,11 @@ export function Navigator() {
   } else if (step === "km") {
     body = (
       <Single
+        recap={recapFor("km")}
         step={step}
         title="About how far in a year?"
-        hint="Most people miss the true year, some too high and some far too low. A band is safer than a precise number you do not have. If the service sticker shows last year’s kilometres, use that. A wrong band moves the yearly fuel or power. It does not change the price of the car."
+        hint="A band is safer than a precise number you do not have. If the service sticker shows last year’s kilometres, use that."
+        more="Most people miss the true year, some too high and some far too low. A wrong band moves the yearly fuel or power. It does not change the price of the car."
         options={KM_BANDS}
         value={answers.km}
         onPick={(id) => patch({ km: id as KmBand }, "focus")}
@@ -487,6 +523,7 @@ export function Navigator() {
   } else if (step === "focus" && result) {
     body = (
       <Focus
+        recap={recapFor("focus")}
         answers={answers}
         aha={answersReady(answers) ? result.aha : null}
         onPick={(partial) => patch(partial)}
@@ -566,8 +603,12 @@ export function Navigator() {
 
   return (
     <div className="min-h-dvh bg-bg text-ink">
-      <div className="mx-auto grid min-h-dvh w-full max-w-5xl grid-cols-[minmax(0,1fr)] md:w-fit md:grid-cols-[16rem_28rem] md:gap-10 md:px-6">
-        <aside className="hidden md:flex md:flex-col md:justify-start md:pt-16">
+      <div
+        className={`mx-auto grid min-h-dvh w-full max-w-5xl grid-cols-[minmax(0,1fr)] md:px-6 ${
+          showRail ? "md:w-fit md:grid-cols-[16rem_28rem] md:gap-10" : "md:w-[28rem]"
+        }`}
+      >
+        <aside className={showRail ? "hidden md:flex md:flex-col md:justify-start md:pt-16" : "hidden"}>
           <p className="text-xs font-medium tracking-widest text-spruce uppercase">n8n · five nodes</p>
           <p className="font-serif mt-3 text-3xl leading-tight">The same path the workflow will run.</p>
           <ol className="mt-6">
@@ -820,6 +861,25 @@ function Fold({ id, title, line, open, onToggle, children }: { id: string; title
   );
 }
 
+type RecapItem = { label: string; step: Step };
+
+function Recap({ items, onJump }: { items: RecapItem[]; onJump: (step: Step) => void }) {
+  if (items.length === 0) return null;
+  return (
+    <nav aria-label="Your answers so far" data-hscroll className="-mx-5 mb-3 overflow-x-auto px-5">
+      <ul className="flex w-max gap-1.5 pr-5">
+        {items.map((item) => (
+          <li key={item.step}>
+            <button type="button" onClick={() => onJump(item.step)} className="min-h-9 rounded-full border border-line bg-card px-3 text-xs whitespace-nowrap text-muted">
+              {item.label}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
 function NoteButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} className="mt-1 min-h-11 px-1 text-left text-sm font-medium text-spruce">
@@ -839,10 +899,14 @@ function Single({
   onFact,
   onPick,
   onBack,
+  recap,
+  more,
 }: {
   step: Step;
   title: string;
   hint: string;
+  more?: string;
+  recap?: ReactNode;
   options: { id: string; title: string; detail?: string }[];
   value: string | null;
   notes?: { optionId: string; fact: FactKey; label: string }[];
@@ -853,10 +917,17 @@ function Single({
   return (
     <div className="flex flex-1 flex-col">
       <Header step={step} onBack={onBack} />
-      <div className="flex flex-1 flex-col px-5 pt-2 pb-6">
+      <div className="flex flex-1 flex-col px-5 pt-1 pb-6">
+        {recap}
         <h1 className="font-serif text-3xl leading-tight">{title}</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted">{hint}</p>
-        <div className="mt-5 flex flex-col gap-2">
+        {more ? (
+          <details className="mt-1 text-sm text-muted">
+            <summary className="min-h-9 cursor-pointer py-1.5 font-medium text-spruce">Why a band?</summary>
+            <p className="pb-1 leading-relaxed">{more}</p>
+          </details>
+        ) : null}
+        <div className="mt-4 flex flex-col gap-2">
           {options.map((opt) => {
             const matched = notes?.filter((n) => n.optionId === opt.id) ?? [];
             return (
@@ -912,7 +983,9 @@ function Focus({
   onFact,
   onSend,
   sent,
+  recap,
 }: {
+  recap?: ReactNode;
   answers: Answers;
   aha: string | null;
   onPick: (partial: Partial<Answers>) => void;
@@ -929,7 +1002,8 @@ function Focus({
   return (
     <div className="flex flex-1 flex-col">
       <Header step="focus" onBack={onBack} />
-      <div className="flex flex-1 flex-col px-5 pt-2 pb-6">
+      <div className="flex flex-1 flex-col px-5 pt-1 pb-6">
+        {recap}
         <h1 className="font-serif text-3xl leading-tight">{spec.title}</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted">{spec.hint}</p>
         {note ? <NoteButton label="Read the short note" onClick={() => onFact(note)} /> : null}
@@ -1118,7 +1192,19 @@ function ResultView({
 
         <div>
           <h1 className="font-serif text-3xl leading-tight">{result.headline}</h1>
-          <p className="mt-3 text-base leading-relaxed whitespace-pre-line">{result.verdict}</p>
+          <div className="mt-3 flex flex-col gap-2.5">
+            {result.verdict.split("\n").map((line) => {
+              const cut = line.indexOf(". ");
+              const lead = cut === -1 ? line : line.slice(0, cut + 1);
+              const rest = cut === -1 ? "" : line.slice(cut + 2);
+              return (
+                <p key={line} className="text-base leading-snug tabular-nums">
+                  <span className="font-medium">{lead}</span>
+                  {rest ? <span className="block text-sm leading-snug text-muted">{rest}</span> : null}
+                </p>
+              );
+            })}
+          </div>
           {sample ? null : (
             <p className="mt-3 text-sm leading-relaxed text-muted">Opening this page stores an anonymous session. No name, and no postcode.</p>
           )}
@@ -1995,6 +2081,52 @@ function shareText(result: Result): string {
     .join("\n");
 }
 
+function PictureCard({ result, text }: { result: Result; text: string }) {
+  const [pic, setPic] = useState<{ url: string; blob: Blob } | null>(null);
+  const [state, setState] = useState<"idle" | "making" | "failed">("idle");
+  const url = pic?.url;
+  useEffect(() => () => (url ? URL.revokeObjectURL(url) : undefined), [url]);
+  const make = async () => {
+    setState("making");
+    try {
+      const host = /^(localhost|127\.|\[)/.test(window.location.hostname) ? null : window.location.host;
+      const blob = await cardBlob(result, host);
+      setPic({ url: URL.createObjectURL(blob), blob });
+      setState("idle");
+    } catch {
+      setState("failed");
+    }
+  };
+  const file = pic ? new File([pic.blob], "bev-navigator.png", { type: "image/png" }) : null;
+  const canShareFile = Boolean(file && typeof navigator !== "undefined" && navigator.canShare?.({ files: [file] }));
+  const btn = "flex min-h-12 items-center rounded-2xl border border-line bg-card px-4 text-left text-sm font-medium";
+  if (!pic) {
+    return (
+      <button type="button" onClick={() => void make()} disabled={state === "making"} className={btn}>
+        {state === "making" ? "Making the picture" : state === "failed" ? "Could not make a picture. Try again" : "Make a picture to share"}
+      </button>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      <img src={pic.url} alt={text} className="w-full rounded-2xl border border-line" />
+      <p className="text-xs leading-relaxed text-muted">Made on this phone. No name, no place, no postcode. Nothing is uploaded.</p>
+      {canShareFile && file ? (
+        <button
+          type="button"
+          onClick={() => void navigator.share({ files: [file], text }).catch(() => undefined)}
+          className={btn}
+        >
+          Share the picture
+        </button>
+      ) : null}
+      <a href={pic.url} download="bev-navigator.png" className={btn}>
+        Save the picture
+      </a>
+    </div>
+  );
+}
+
 function ShareNote({ result }: { result: Result }) {
   const [copied, setCopied] = useState(false);
   const text = shareText(result);
@@ -2031,6 +2163,25 @@ function ShareNote({ result }: { result: Result }) {
           className="flex min-h-12 items-center rounded-2xl border border-line bg-card px-4 text-left text-sm font-medium"
         >
           {copied ? "Copied. Paste it where you like." : "Copy the note"}
+        </button>
+        <PictureCard key={`${result.headline}-${result.annualKeep}-${result.annualSwap}-${result.cash}`} result={result} text={text} />
+        <button
+          type="button"
+          onClick={() => {
+            const url = window.location.hostname === "localhost" ? null : window.location.origin;
+            const blob = new Blob([revisitIcs(new Date(), 6, url)], { type: "text/calendar" });
+            const href = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = href;
+            a.download = "bev-navigator-reminder.ics";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(href);
+          }}
+          className="flex min-h-12 items-center rounded-2xl border border-line bg-card px-4 text-left text-sm font-medium"
+        >
+          Remind me in six months (a calendar file)
         </button>
       </div>
     </section>
@@ -2225,6 +2376,15 @@ function SoFar({ result, step }: { result: Result; step: Step }) {
       : step === "fuel"
         ? "The fuel sets that line. The year waits until the distance is yours too."
         : "The distance band is the piece that moves the year. It is not an odometer reading.";
+  if (!ready) {
+    // Until the distance is chosen there is no year to show. Say why in two lines, not in a half-empty gauge.
+    return (
+      <div className="border-t border-line bg-card px-5 py-3">
+        <p className="text-xs font-medium tracking-widest text-muted uppercase">The year waits</p>
+        <p className="mt-1 text-sm leading-snug text-muted">{waiting}</p>
+      </div>
+    );
+  }
   return (
     <div className="border-t border-line bg-card px-5 py-3">
       <div className="flex items-baseline justify-between gap-3">
