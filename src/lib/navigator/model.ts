@@ -88,7 +88,7 @@ export const SAMPLE: Answers = {
   worry: null,
 };
 
-const RATES = {
+export const RATES = {
   home: 0.29,
   homeSpecial: 0.21,
   work: 0.18,
@@ -105,7 +105,7 @@ const RATES = {
 
 const CLASS_ORDER: CarClass[] = ["small", "compact", "mid", "suv", "van"];
 
-type Spec = {
+export type Spec = {
   iceL: number;
   iceIns: number;
   iceTax: number;
@@ -119,7 +119,7 @@ type Spec = {
   bevMaint: number;
 };
 
-const SPECS: Record<CarClass, Spec> = {
+export const SPECS: Record<CarClass, Spec> = {
   small: {
     iceL: 5.4,
     iceIns: 740,
@@ -187,7 +187,7 @@ const SPECS: Record<CarClass, Spec> = {
   },
 };
 
-const PUMP: Record<Exclude<Fuel, "electric">, number> = {
+export const PUMP: Record<Exclude<Fuel, "electric">, number> = {
   petrol: 1.79,
   diesel: 1.93,
   hybrid: 1.48,
@@ -1123,7 +1123,7 @@ export function homeCopy(parking: Parking | null): { title: string; hint: string
   };
 }
 
-export function researchRecord(result: Result, sessionId: string, opened: string[] = []) {
+export function researchRecord(result: Result, sessionId: string, opened: string[] = [], datasetVersion: string = DATASET) {
   return {
     v: 1,
     tool: "bev-navigator-prototype",
@@ -1159,7 +1159,7 @@ export function researchRecord(result: Result, sessionId: string, opened: string
     cash: result.cash,
     saving: result.saving,
     paybackYears: result.paybackYears == null ? null : Math.round(result.paybackYears * 10) / 10,
-    dataset: DATASET,
+    dataset: datasetVersion,
     model: MODEL,
     cited: ["tco-2023"],
   };

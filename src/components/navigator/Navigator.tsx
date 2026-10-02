@@ -4,7 +4,8 @@ import { ArrowLeft, Check, ChevronDown, Download, RotateCcw } from "lucide-react
 import { CostChart } from "@/components/navigator/CostChart";
 import { ClimateChart } from "@/components/navigator/ClimateChart";
 import { FACTS, FACT_VIEW, type Fact, type FactKey } from "@/lib/navigator/facts";
-import { CANTONS, listFacts, cantonHomeRate, lookupPostcode, officialHomeRate, saveSession, type OfficialHome, type SessionBag } from "@/lib/navigator/session";
+import { applyDataset } from "@/lib/navigator/dataset";
+import { CANTONS, listFacts, loadDataset, cantonHomeRate, lookupPostcode, officialHomeRate, saveSession, type OfficialHome, type SessionBag } from "@/lib/navigator/session";
 import {
   BARRIERS,
   CLASSES,
@@ -131,6 +132,8 @@ export function Navigator() {
   const timer = useRef<number | null>(null);
   const sendSession = useServerFn(saveSession);
   const loadFacts = useServerFn(listFacts);
+  const fetchDataset = useServerFn(loadDataset);
+  const [datasetVersion, setDatasetVersion] = useState<string | undefined>(undefined);
   const loadOfficial = useServerFn(officialHomeRate);
   const loadCanton = useServerFn(cantonHomeRate);
   const lookupPlace = useServerFn(lookupPostcode);
@@ -160,6 +163,12 @@ export function Navigator() {
       setSessionId(crypto.randomUUID());
     }
     setHydrated(true);
+    void fetchDataset()
+      .then((d) => {
+        applyDataset(d.rows);
+        setDatasetVersion(d.version);
+      })
+      .catch(() => undefined);
     void loadOfficial()
       .then((row) => setOfficial(row))
       .catch(() => setOfficial(null));
@@ -368,6 +377,7 @@ export function Navigator() {
       gearQuote: result.answers.gearQuote ?? null,
       rentDays: result.answers.rentDays ?? null,
       fromSample,
+      datasetVersion,
     };
     try {
       await sendSession({ data: bag });
@@ -524,7 +534,7 @@ export function Navigator() {
           }
         }}
         onDownload={() => {
-          const blob = new Blob([JSON.stringify(researchRecord(result, sessionId || "local", opened), null, 2)], {
+          const blob = new Blob([JSON.stringify(researchRecord(result, sessionId || "local", opened, datasetVersion), null, 2)], {
             type: "application/json",
           });
           const url = URL.createObjectURL(blob);

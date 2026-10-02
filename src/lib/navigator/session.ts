@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { FACTS, type Fact, type FactKey } from "@/lib/navigator/facts";
 import { DATASET, MODEL } from "@/lib/navigator/model";
+import { SEED_VERSION, seedRows, type DatasetRow } from "@/lib/navigator/dataset";
 
 export type OfficialHome = { homeChf: number; n: number; year: string; place: string };
 
@@ -242,6 +243,24 @@ export const listFacts = createServerFn({ method: "GET" }).handler(async () => {
   });
 });
 
+export type DatasetPayload = { version: string; rows: DatasetRow[]; source: "database" | "seed" };
+
+/** Newest published dataset version. Falls back to the built-in seed if the table is missing or empty. */
+export const loadDataset = createServerFn({ method: "GET" }).handler(async (): Promise<DatasetPayload> => {
+  try {
+    const sql = await getSql();
+    const latest = await sql<{ dataset_version: string }>`select dataset_version from bev_dataset order by valid_from desc, dataset_version desc limit 1`;
+    const version = latest[0]?.dataset_version;
+    if (version) {
+      const rows = await sql<DatasetRow>`select key, value, unit, status, publisher, published_on::text as published_on, source_url, note from bev_dataset where dataset_version = ${version}`;
+      if (rows.length > 0) return { version, rows, source: "database" };
+    }
+  } catch {
+    // table not migrated yet: the seed is the same numbers
+  }
+  return { version: SEED_VERSION, rows: seedRows(), source: "seed" };
+});
+
 type Stage = "mid" | "final";
 
 export type SessionBag = {
@@ -283,6 +302,7 @@ export type SessionBag = {
   gearQuote?: number | null;
   rentDays?: number | null;
   fromSample?: boolean;
+  datasetVersion?: string;
 };
 
 const ONE_OF = {
@@ -362,7 +382,7 @@ export const saveSession = createServerFn({ method: "POST" })
                 ? null
                 : Math.round(Number(data.paybackYears) * 10) / 10,
             withinHorizon: Boolean(data.withinHorizon),
-            dataset: DATASET,
+            dataset: typeof data.datasetVersion === "string" && /^[a-z0-9-]{1,40}$/.test(data.datasetVersion) ? data.datasetVersion : DATASET,
             model: MODEL,
             cited: ["tco-2023"],
             homeSource: data.homeGrain === "municipality"

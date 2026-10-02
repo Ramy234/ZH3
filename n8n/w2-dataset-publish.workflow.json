@@ -1,0 +1,286 @@
+{
+  "name": "W2 BEV dataset publish",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "content": "W2: publish the BEV dataset. NOT active. Targets bev_dataset_test.\n\nReads the Google Sheet \"BEV dataset\", checks every row, compares with the newest version in the database, and inserts a new version only if every row is valid and something changed. It never changes a number itself.\n\nTo go live: (1) attach your Google Sheets credential to 'Read sheet'. (2) Run by hand once and look at 'Validate dataset'. (3) Switch on 'Insert new version', run once, check bev_dataset_test. (4) Only then rebuild with BEV_DATASET_TABLE=bev_dataset (node n8n/build-w2.mjs) and import. Never edit a password in a credential.\n",
+        "height": 360,
+        "width": 460
+      },
+      "id": "w2-note",
+      "name": "Read first",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -420
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "w2-manual",
+      "name": "Run by hand",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "w2-daily",
+      "name": "Daily",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        200
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "14KMwC_MWIkJeJbN5sNPONBxFVv3DcuO1K4g3nO7F8vo",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "w2-sheet",
+      "name": "Read sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        260,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select key, value, unit, status, publisher, published_on::text as published_on, source_url, note from bev_dataset_test where dataset_version = (select dataset_version from bev_dataset_test order by valid_from desc, dataset_version desc limit 1)",
+        "options": {}
+      },
+      "id": "w2-current",
+      "name": "Current dataset",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        520,
+        100
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "Tj1nxebs0zLxWTBj",
+          "name": "bev Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n node \"Validate dataset\" (W2). Reads the sheet rows and the current published rows. Calculates nothing.\n// Output: { ok, errors, warnings, changes, version, rows }. Only ok + changes>0 goes on to the insert.\nconst sheet = $('Read sheet').all().map((i) => i.json);\nconst current = $('Current dataset').all().map((i) => i.json).filter((r) => r.key);\nconst STATUS = ['placeholder', 'sourced', 'official', 'live'];\nconst errors = [];\nconst warnings = [];\nconst byKey = new Map(current.map((r) => [r.key, r]));\nconst seen = new Set();\nconst rows = [];\nconst iso = (v) => {\n  const s = String(v ?? '').trim();\n  if (!s) return null;\n  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(s)) return s;\n  const m = s.match(/^(\\d{1,2})\\.(\\d{1,2})\\.(\\d{4})$/);\n  return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : undefined;\n};\nfor (const [i, r] of sheet.entries()) {\n  const line = i + 2;\n  const key = String(r.key ?? '').trim();\n  if (!key) continue;\n  if (!/^(rate|pump|spec)\\.[A-Za-z]+(\\.[A-Za-z]+)?$/.test(key)) { errors.push(`row ${line}: bad key \"${key}\"`); continue; }\n  if (current.length && !byKey.has(key)) { errors.push(`row ${line}: unknown key \"${key}\"`); continue; }\n  if (seen.has(key)) { errors.push(`row ${line}: duplicate key \"${key}\"`); continue; }\n  seen.add(key);\n  const value = Number(String(r.value ?? '').replace(',', '.'));\n  if (String(r.value ?? '').trim() === '' || !Number.isFinite(value) || value < 0) { errors.push(`row ${line} ${key}: value must be a number, zero or more`); continue; }\n  const status = String(r.status ?? '').trim().toLowerCase();\n  if (!STATUS.includes(status)) { errors.push(`row ${line} ${key}: status must be one of ${STATUS.join(', ')}`); continue; }\n  const publisher = String(r.publisher ?? '').trim() || null;\n  const published_on = iso(r.published_on);\n  const source_url = String(r.source_url ?? '').trim() || null;\n  if (published_on === undefined) { errors.push(`row ${line} ${key}: published_on must be YYYY-MM-DD or DD.MM.YYYY`); continue; }\n  if (source_url && !/^https:\\/\\/\\S+$/.test(source_url)) { errors.push(`row ${line} ${key}: source_url must start with https://`); continue; }\n  if (status !== 'placeholder' && !(publisher && published_on && source_url)) { errors.push(`row ${line} ${key}: status ${status} needs publisher, published_on and source_url`); continue; }\n  const before = byKey.get(key);\n  if (before && Number(before.value) > 0 && (value > Number(before.value) * 3 || value < Number(before.value) / 3)) warnings.push(`${key}: ${before.value} -> ${value} is a jump of more than 3x. Check the unit.`);\n  rows.push({ key, value, unit: String(r.unit ?? '').trim() || (before ? before.unit : ''), status, publisher, published_on, source_url, note: String(r.note ?? '').trim() });\n}\nfor (const k of byKey.keys()) if (!seen.has(k)) errors.push(`missing key \"${k}\": a new version must carry every number`);\nconst changes = rows.filter((r) => {\n  const b = byKey.get(r.key);\n  return !b || Number(b.value) !== r.value || b.status !== r.status || (b.source_url || null) !== r.source_url || (b.publisher || null) !== r.publisher || String(b.published_on || '').slice(0, 10) !== (r.published_on || '') || (b.note || '') !== r.note || (b.unit || '') !== r.unit;\n});\nconst diff = changes.map((r) => { const b = byKey.get(r.key); return `${r.key}: ${b ? `${b.value} (${b.status})` : 'new'} -> ${r.value} (${r.status})`; });\nconst d = new Date();\nconst p = (n) => String(n).padStart(2, '0');\nconst version = `v-${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}-${p(d.getUTCHours())}${p(d.getUTCMinutes())}`;\nreturn [{ json: { ok: errors.length === 0, errors, warnings, changes: changes.length, diff, version, rows } }];\n"
+      },
+      "id": "w2-validate",
+      "name": "Validate dataset",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        780,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "c2",
+              "leftValue": "={{ $json.changes }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ]
+        }
+      },
+      "id": "w2-if",
+      "name": "Valid and changed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1040,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into bev_dataset_test (dataset_version, key, value, unit, status, publisher, published_on, source_url, note) select $1, x.key, x.value, x.unit, x.status, x.publisher, x.published_on::date, x.source_url, coalesce(x.note, '') from json_to_recordset($2::json) as x(key text, value double precision, unit text, status text, publisher text, published_on text, source_url text, note text) returning key",
+        "options": {
+          "queryReplacement": "={{ [$json.version, JSON.stringify($json.rows)] }}"
+        }
+      },
+      "id": "w2-insert",
+      "name": "Insert new version",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1300,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "Tj1nxebs0zLxWTBj",
+          "name": "bev Postgres"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {},
+      "id": "w2-notify",
+      "name": "Send diff to team (wire a mail node)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1560,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "w2-stop",
+      "name": "Nothing to publish (see errors)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        220
+      ]
+    }
+  ],
+  "connections": {
+    "Run by hand": {
+      "main": [
+        [
+          {
+            "node": "Read sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily": {
+      "main": [
+        [
+          {
+            "node": "Read sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read sheet": {
+      "main": [
+        [
+          {
+            "node": "Current dataset",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Current dataset": {
+      "main": [
+        [
+          {
+            "node": "Validate dataset",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate dataset": {
+      "main": [
+        [
+          {
+            "node": "Valid and changed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid and changed?": {
+      "main": [
+        [
+          {
+            "node": "Insert new version",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Nothing to publish (see errors)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert new version": {
+      "main": [
+        [
+          {
+            "node": "Send diff to team (wire a mail node)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

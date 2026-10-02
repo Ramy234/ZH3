@@ -5,3 +5,8 @@
 - `DATABASE_URL` is deferred; the app stays on PGLite until Martin adds it to `.env.local`.
 - Golden tests pin the current model output (characterisation), not independently derived values. Re-pin deliberately and bump `MODEL` when the arithmetic changes.
 - The 9 Grok-script tests that failed on arrival are fixed: `grok-pwa-plugin.test.mjs` now runs in an empty temp cwd (it read this app's `site.json` and `og.jpg`), and the migration test no longer expects `migrations/` to hold only `auth/`. `npm test` is green end to end (197 + 86).
+- Step 2 dataset scope: `bev_dataset` holds `RATES`, `SPECS` and `PUMP` from `model.ts` (70 rows, all `placeholder` except `rate.horizon`, `sourced` from the federal study). Not yet in the dataset: persona km, TCS canton tax table, persona weights (`bev_rules_version`, later). Reason: weights must not be retuned, and tax is a yearly manual update.
+- `bev_dataset` is insert-only (trigger), and a non-placeholder row must carry publisher, date and url (check constraint). The seed migration `0010` is generated from `model.ts` by `scripts/gen-dataset-seed.mjs`; a test fails if it drifts.
+- Dataset versions are named `v-YYYY-MM-DD-hhmm` (lowercase, to pass the existing n8n `dataset` pattern). The seed version stays `placeholder-2026-10-02`.
+- W2 is a JSON file (`n8n/w2-dataset-publish.workflow.json`), inactive, targeting `bev_dataset_test`. The Google Sheets credential is not stored; Martin attaches it in n8n.
+- Google Sheet "BEV dataset" was created in the connected Drive from `n8n/sheet/bev-dataset-template.csv`.
