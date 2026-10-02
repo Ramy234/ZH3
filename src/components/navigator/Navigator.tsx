@@ -5,6 +5,7 @@ import { CostChart } from "@/components/navigator/CostChart";
 import { ClimateChart } from "@/components/navigator/ClimateChart";
 import { FACTS, FACT_VIEW, type Fact, type FactKey } from "@/lib/navigator/facts";
 import { applyDataset } from "@/lib/navigator/dataset";
+import { wouldHaveToBeTrue, type Counterfactual, type LeverKey } from "@/lib/navigator/counterfactual";
 import { CANTONS, listFacts, loadDataset, cantonHomeRate, lookupPostcode, officialHomeRate, saveSession, type OfficialHome, type SessionBag } from "@/lib/navigator/session";
 import {
   BARRIERS,
@@ -717,9 +718,91 @@ function BarrierStep({
   );
 }
 
-function Fold({ title, line, open, onToggle, children }: { title: string; line: string; open: boolean; onToggle: () => void; children: ReactNode }) {
+const LEVER_PHRASE: Record<LeverKey, string> = {
+  used: "a used car with a checked battery",
+  rightSize: "one class down, with the rare days rented",
+  work: "charging at work",
+  home: "charging where the car sleeps",
+  publicPlan: "a public charging plan",
+  tariff: "a cheaper home tariff",
+  pv: "solar on the roof",
+};
+
+function WhatWouldHaveToBeTrue({ result, onTry }: { result: Result; onTry: (key: keyof Toggles) => void }) {
+  const c: Counterfactual = wouldHaveToBeTrue(result);
+  if (c.kind === "none") return null;
+  const year = (n: number) => `year ${Math.ceil(n)}`;
+  const lever = c.kind === "covered" ? null : c.best;
   return (
-    <section>
+    <section className="rounded-2xl border border-line bg-card p-4">
+      <h2 className="font-medium">What would have to be true</h2>
+      {c.kind === "covered" ? (
+        <p className="mt-2 text-sm leading-relaxed">
+          The extra price could be {chf(c.room)} higher before the covering year passes {c.window}. That is the room this case has, on placeholder prices.
+        </p>
+      ) : c.kind === "no-saving" ? (
+        <p className="mt-2 text-sm leading-relaxed">
+          On these figures the electric car does not cost less to run, so no purchase price makes the extra money come back.
+          {lever ? ` Only a change in how it is charged or bought could: ${LEVER_PHRASE[lever.key]}.` : " Nothing in the switches below changes that."} Keeping the car is a complete answer.
+        </p>
+      ) : (
+        <p className="mt-2 text-sm leading-relaxed">
+          For the extra price to be covered within {c.window} years, one of two things would have to change: the extra price would have to be {chf(c.extraPriceMustFall)} lower, or the saving {chf(c.yearlySavingMustRise)} a year higher.
+          {lever
+            ? ` The switch here that moves it most is ${LEVER_PHRASE[lever.key]}: ${year(result.paybackYears ?? 0)} becomes ${year(lever.paybackAfter)}${lever.reaches ? `, inside ${c.window} years` : `, still past ${c.window}`}.`
+            : " None of the switches below moves it."}{" "}
+          Keeping the car is a complete answer.
+        </p>
+      )}
+      {lever ? (
+        <button type="button" onClick={() => onTry(lever.key)} className="mt-3 min-h-11 rounded-full border border-line bg-sheet px-4 text-sm font-medium">
+          Try it: {LEVER_PHRASE[lever.key]}
+        </button>
+      ) : null}
+    </section>
+  );
+}
+
+async function shareOrCopy(text: string): Promise<"shared" | "copied" | "failed"> {
+  try {
+    if (typeof navigator !== "undefined" && navigator.share) {
+      await navigator.share({ text });
+      return "shared";
+    }
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") return "failed";
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    return "copied";
+  } catch {
+    return "failed";
+  }
+}
+
+function ActionBar({ onShare, onChange, onDetails, note }: { onShare: () => void; onChange: () => void; onDetails: () => void; note: string | null }) {
+  const cls = "min-h-11 min-w-0 flex-1 rounded-full border border-line bg-card px-2 text-sm font-medium";
+  return (
+    <div className="sticky bottom-0 z-10 border-t border-line bg-sheet px-5 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+      {note ? <p role="status" className="pb-1 text-center text-xs text-muted">{note}</p> : null}
+      <div className="flex gap-2">
+        <button type="button" onClick={onShare} className={cls}>
+          Share
+        </button>
+        <button type="button" onClick={onChange} className={cls}>
+          Adjust
+        </button>
+        <button type="button" onClick={onDetails} className={cls}>
+          Details
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Fold({ id, title, line, open, onToggle, children }: { id: string; title: string; line: string; open: boolean; onToggle: () => void; children: ReactNode }) {
+  return (
+    <section id={id}>
       <button
         type="button"
         onClick={onToggle}
@@ -1000,6 +1083,7 @@ function ResultView({
   const [climateOpen, setClimateOpen] = useState(false);
   // Two closed folds hold the reasoning and the evidence. The decision, the next steps and the levers stay on the page.
   const [folds, setFolds] = useState({ why: false, evidence: false });
+  const [barNote, setBarNote] = useState<string | null>(null);
   useEffect(() => {
     if (gap !== "payback") return;
     setFolds((f) => ({ ...f, why: true }));
@@ -1163,6 +1247,8 @@ function ResultView({
           </p>
         </section>
 
+        <WhatWouldHaveToBeTrue result={result} onTry={onFlip} />
+
         <section>
           <h2 className="font-medium">Next steps</h2>
           <ol className="mt-3 space-y-3">
@@ -1197,7 +1283,7 @@ function ResultView({
           </ol>
         </section>
 
-        <section>
+        <section id="levers">
           <h2 className="font-medium">See what changes the number</h2>
           <p className="mt-1 text-sm leading-relaxed text-muted">
             Each switch recalculates immediately. A page is shown only when it matches this case. The prices are placeholders, not a quote and not an offer.
@@ -1286,6 +1372,7 @@ function ResultView({
         <ShareNote result={result} />
 
         <Fold
+          id="why"
           title="Why this result"
           line="The payback sum, what the year is made of, where the electric kilometres charge, and the worries the francs do not close."
           open={folds.why}
@@ -1346,6 +1433,7 @@ function ResultView({
         </Fold>
 
         <Fold
+          id="evidence"
           title="What went into the number"
           line="Every figure with its tag and source, how it was decided, and the place."
           open={folds.evidence}
@@ -1499,6 +1587,19 @@ function ResultView({
           Start again
         </button>
       </div>
+      <ActionBar
+        note={barNote}
+        onShare={() =>
+          void shareOrCopy(shareText(result)).then((how) => {
+            setBarNote(how === "copied" ? "Copied. Paste it where you like." : how === "failed" ? "Could not share from here. Use “Ask someone else” below." : null);
+          })
+        }
+        onChange={() => document.getElementById("levers")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+        onDetails={() => {
+          setFolds({ why: true, evidence: true });
+          window.setTimeout(() => document.getElementById("why")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+        }}
+      />
     </div>
   );
 }
