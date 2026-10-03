@@ -62,3 +62,23 @@
 h1[tabindex="-1"]:focus {
   outline: none;
 }
+
+/* A screen eases in over 180 ms. Nothing moves for people who ask for reduced motion. */
+@keyframes step-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.step-in {
+  animation: step-in 180ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .step-in {
+    animation: none;
+  }
+}

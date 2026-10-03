@@ -46,6 +46,7 @@ const SPEC_UNIT: Record<keyof Spec, string> = {
   bevNew: "CHF",
   bevUsed: "CHF",
   kwh: "kWh/100km",
+  battery: "kWh",
   bevIns: "CHF/year",
   bevTax: "CHF/year",
   bevMaint: "CHF/year",
@@ -82,7 +83,7 @@ export function seedRows(): DatasetRow[] {
       publisher: null,
       published_on: null,
       source_url: null,
-      note: "Pump price. W3 will replace this with the BFS monthly average.",
+      note: fuel === "hybrid" ? "Equals pump.petrol. A hybrid buys petrol: the model reads pump.petrol for it and ignores this row." : "Pump price. W3 will replace this with the BFS monthly average.",
     });
   }
   for (const [cls, spec] of Object.entries(SPECS)) {
@@ -95,7 +96,7 @@ export function seedRows(): DatasetRow[] {
         publisher: null,
         published_on: null,
         source_url: null,
-        note: "Class placeholder, not a quote.",
+        note: field === "battery" ? "Usable battery, class placeholder. Used only for the ordinary-week strip, never for francs." : "Class placeholder, not a quote.",
       });
     }
   }

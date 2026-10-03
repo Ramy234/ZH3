@@ -75,9 +75,9 @@ export const FACTS: Record<FactKey, Fact> = {
   winter: {
     key: "winter",
     title: "Winter range is a real trip, not a slogan",
-    body: "In the gfs.bern Mobility Monitor of September 2025, 78 percent of people still named range as a concern. This check does not apply a winter factor to the kilometres or the francs. One percentage would pretend to be their road, their speed and their heater. What can be checked is narrower: the longest trip they actually take in winter, whether that trip is rare enough to borrow, and a measured consumption on that kind of day. Not the brochure figure. If the ordinary week is fine and the worry is one trip, that is the smaller-car question, not a reason to size the car for the worst day.",
-    source: "gfs.bern Mobility Monitor, 13 September 2025, for the 78 percent. This model still has no winter factor.",
-    as_of: "2026-10-02",
+    body: "In the gfs.bern Mobility Monitor of September 2025, 79 percent of voters who would not buy a pure electric car called its limited range a very or rather important reason. The report’s own summary prints 78. This is 1,002 voters, asked in June and July 2025 for auto-schweiz, the importers’ body. It is not a count of all drivers. This check does not apply a winter factor to the kilometres or the francs. One percentage would pretend to be their road, their speed and their heater. What can be checked is narrower: the longest trip they actually take in winter, whether that trip is rare enough to borrow, and a measured consumption on that kind of day. Not the brochure figure. If the ordinary week is fine and the worry is one trip, that is the smaller-car question, not a reason to size the car for the worst day.",
+    source: "gfs.bern Mobility Monitor, 13 September 2025, page 20 for the 79 percent (page 4 prints 78). Commissioned by auto-schweiz. This model still has no winter factor.",
+    as_of: "2026-10-03",
     status: "dated",
   },
   "not-for-me": {
@@ -200,9 +200,9 @@ export const FACT_VIEW: Record<FactKey, FactView> = {
   winter: {
     kicker: "Other people’s answers. Not your trip.",
     figure: {
-      value: "78%",
-      fill: 0.78,
-      caption: "Named range as a concern. gfs.bern Mobility Monitor, 13 September 2025. A survey, not a measurement of your car in winter.",
+      value: "79%",
+      fill: 0.79,
+      caption: "Of voters who would not buy a pure electric car, the share who called limited range a very or rather important reason. gfs.bern Mobility Monitor, 13 September 2025, for auto-schweiz; the report’s summary prints 78. A survey, not a measurement of your car in winter.",
     },
     lines: [
       { label: "Not in the francs", text: "This check applies no winter factor to the kilometres or the money. One percentage would pretend to be your road, your speed and your heater." },

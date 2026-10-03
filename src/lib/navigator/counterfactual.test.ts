@@ -53,3 +53,18 @@ test("it never changes the result it reads", () => {
   wouldHaveToBeTrue(r);
   assert.equal(JSON.stringify(r), before);
 });
+
+import { ordinaryWeek } from "./week.ts";
+import { SPECS } from "./model.ts";
+
+test("ordinary week: plain division, and it never touches the francs", () => {
+  const r = evaluate(SAMPLE, suggestToggles(SAMPLE));
+  const before = JSON.stringify(r);
+  const w = ordinaryWeek(r);
+  assert.equal(w.weekKm, r.km / 52);
+  assert.ok(Math.abs(w.share - (w.weekKwh / SPECS[r.bevClass].battery)) < 1e-12);
+  assert.equal(w.coversWeek, w.fullChargeKm >= w.weekKm);
+  assert.ok(Math.abs(w.mix.home + w.mix.work + w.mix.public - 1) < 1e-9);
+  assert.equal(JSON.stringify(r), before);
+  for (const cls of Object.values(SPECS)) assert.ok(cls.battery > 0 && cls.battery < 200);
+});

@@ -114,6 +114,8 @@ export type Spec = {
   bevNew: number;
   bevUsed: number;
   kwh: number;
+  /** Usable battery, kWh. A class placeholder for the ordinary-week strip. It does not enter any franc figure. */
+  battery: number;
   bevIns: number;
   bevTax: number;
   bevMaint: number;
@@ -129,6 +131,7 @@ export const SPECS: Record<CarClass, Spec> = {
     bevNew: 27900,
     bevUsed: 16800,
     kwh: 14.2,
+    battery: 40,
     bevIns: 700,
     bevTax: 70,
     bevMaint: 470,
@@ -142,6 +145,7 @@ export const SPECS: Record<CarClass, Spec> = {
     bevNew: 34900,
     bevUsed: 19900,
     kwh: 16.5,
+    battery: 58,
     bevIns: 860,
     bevTax: 100,
     bevMaint: 650,
@@ -155,6 +159,7 @@ export const SPECS: Record<CarClass, Spec> = {
     bevNew: 46900,
     bevUsed: 26800,
     kwh: 18.2,
+    battery: 66,
     bevIns: 1040,
     bevTax: 130,
     bevMaint: 770,
@@ -168,6 +173,7 @@ export const SPECS: Record<CarClass, Spec> = {
     bevNew: 58900,
     bevUsed: 32900,
     kwh: 21,
+    battery: 77,
     bevIns: 1260,
     bevTax: 170,
     bevMaint: 1220,
@@ -181,6 +187,7 @@ export const SPECS: Record<CarClass, Spec> = {
     bevNew: 54900,
     bevUsed: 30500,
     kwh: 22.5,
+    battery: 75,
     bevIns: 1200,
     bevTax: 160,
     bevMaint: 1260,
@@ -190,12 +197,18 @@ export const SPECS: Record<CarClass, Spec> = {
 export const PUMP: Record<Exclude<Fuel, "electric">, number> = {
   petrol: 1.79,
   diesel: 1.93,
-  hybrid: 1.48,
+  // A hybrid buys petrol. The model reads `petrol` for it (see `pumpFor`); this row only keeps the dataset sheet aligned.
+  hybrid: 1.79,
 };
+
+/** The litre price the car actually pays. A hybrid is a petrol car with lower consumption, not a cheaper fuel. */
+export function pumpFor(fuel: Exclude<Fuel, "electric">): number {
+  return fuel === "hybrid" ? PUMP.petrol : PUMP[fuel];
+}
 
 export const DATASET = "placeholder-2026-10-02";
 /** Bump when the arithmetic changes, so stored rows from before and after can be told apart. */
-export const MODEL = "2026-10-02-r2";
+export const MODEL = "2026-10-03-r3";
 
 export const SOURCES = {
   "tco-2023": {
@@ -790,7 +803,7 @@ export function evaluate(
   const classLitres = fuel === "diesel" ? ice.iceL * 0.92 : fuel === "hybrid" ? ice.iceL * 0.7 : ice.iceL;
   const litresPer100 = a.litres != null && a.litres >= 3 && a.litres <= 14 ? a.litres : classLitres;
   const fuelCost =
-    fuel === "electric" ? (kmInfo.km / 100) * ice.kwh * rate : (kmInfo.km / 100) * litresPer100 * PUMP[fuel];
+    fuel === "electric" ? (kmInfo.km / 100) * ice.kwh * rate : (kmInfo.km / 100) * litresPer100 * pumpFor(fuel);
 
   const keepPublished = canton ? publishedKeep(canton, iceClass, fuel) : null;
   const swapPublished = canton ? publishedBev(canton, bevClass) : null;
@@ -846,7 +859,7 @@ export function evaluate(
   const kmLabel = kmInfo.km.toLocaleString("de-CH");
   const fuelHow = alreadyElectric
     ? `${kmLabel} km, this class’s consumption, and ${rate.toFixed(2)} francs a kWh. The rate is a placeholder, not a bill. There is no public tariff behind it, so there is no source link.`
-    : `Keeping the car: ${kmLabel} km × ${litresPer100.toFixed(1)} litres per 100 km × ${PUMP[fuel].toFixed(2)} francs a litre. Switching: ${kmLabel} km × ${bev.kwh} kWh per 100 km × ${rate.toFixed(2)} francs a kWh. The litre price, the consumption and the rate are placeholders. No pump and no utility is the source, so this line has no link. Not in these francs: the Federal Council proposed on 26 September 2025 a levy on electric cars from 2030, either about 5.4 rappen a kilometre or 22.8 rappen a kWh. The consultation closed on 9 January 2026. It is a draft, not law.`;
+    : `Keeping the car: ${kmLabel} km × ${litresPer100.toFixed(1)} litres per 100 km × ${pumpFor(fuel).toFixed(2)} francs a litre. Switching: ${kmLabel} km × ${bev.kwh} kWh per 100 km × ${rate.toFixed(2)} francs a kWh. The litre price, the consumption and the rate are placeholders. No pump and no utility is the source, so this line has no link. Not in these francs: the Federal Council proposed on 26 September 2025 a levy on electric cars from 2030, either about 5.4 rappen a kilometre or 22.8 rappen a kWh. The consultation closed on 9 January 2026. It is a draft, not law.`;
   const parts: Result["parts"] = [
     { label: alreadyElectric ? "Power" : "Fuel, or power", keep: Math.round(fuelCost), swap: sameCar ? Math.round(fuelCost) : Math.round(energy), how: fuelHow },
     {

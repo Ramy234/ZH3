@@ -5,6 +5,9 @@ import { CostChart } from "@/components/navigator/CostChart";
 import { ClimateChart } from "@/components/navigator/ClimateChart";
 import { FACTS, FACT_VIEW, type Fact, type FactKey } from "@/lib/navigator/facts";
 import { applyDataset } from "@/lib/navigator/dataset";
+import { cleanActions, cleanCohort, cleanVia, type Action, type Via } from "@/lib/navigator/telemetry";
+import { classifyWords, wordsBoxOn } from "@/lib/navigator/words-server";
+import { ordinaryWeek } from "@/lib/navigator/week";
 import { cardBlob } from "@/lib/navigator/share-card";
 import { revisitIcs } from "@/lib/navigator/revisit";
 import { wouldHaveToBeTrue, type Counterfactual, type LeverKey } from "@/lib/navigator/counterfactual";
@@ -108,6 +111,9 @@ type Saved = {
   pinned: Toggles | null;
   sessionId: string;
   fromSample?: boolean;
+  cohort?: string | null;
+  actions?: string[];
+  barrierVia?: string | null;
 };
 
 export function Navigator() {
@@ -139,6 +145,16 @@ export function Navigator() {
   const loadFacts = useServerFn(listFacts);
   const fetchDataset = useServerFn(loadDataset);
   const [datasetVersion, setDatasetVersion] = useState<string | undefined>(undefined);
+  const [cohort, setCohort] = useState<string | null>(null);
+  const [actions, setActions] = useState<Action[]>([]);
+  const [barrierVia, setBarrierVia] = useState<Via>("tap");
+  const [wordsOn, setWordsOn] = useState(false);
+  const askWordsFlag = useServerFn(wordsBoxOn);
+  const askWords = useServerFn(classifyWords);
+  useEffect(() => {
+    askWordsFlag().then((on) => setWordsOn(Boolean(on))).catch(() => setWordsOn(false));
+  }, []);
+  const record = (action: Action) => setActions((prev) => (prev.includes(action) ? prev : [...prev, action]));
   const loadOfficial = useServerFn(officialHomeRate);
   const loadCanton = useServerFn(cantonHomeRate);
   const lookupPlace = useServerFn(lookupPostcode);
@@ -157,6 +173,9 @@ export function Navigator() {
           setSample(Boolean(saved.sample));
           setPinned(saved.pinned ?? null);
           setFromSample(Boolean(saved.fromSample));
+          setCohort(cleanCohort(saved.cohort));
+          setActions(cleanActions(saved.actions));
+          setBarrierVia(cleanVia(saved.barrierVia));
           setSessionId(saved.sessionId || crypto.randomUUID());
         } else {
           setSessionId(crypto.randomUUID());
@@ -167,6 +186,8 @@ export function Navigator() {
     } catch {
       setSessionId(crypto.randomUUID());
     }
+    const fromLink = cleanCohort(new URLSearchParams(window.location.search).get("s"));
+    if (fromLink) setCohort(fromLink);
     setHydrated(true);
     void fetchDataset()
       .then((d) => {
@@ -184,13 +205,13 @@ export function Navigator() {
 
   useEffect(() => {
     if (!hydrated) return;
-    const payload: Saved = { step, answers, sample, pinned, sessionId, fromSample };
+    const payload: Saved = { step, answers, sample, pinned, sessionId, fromSample, cohort, actions, barrierVia };
     try {
       localStorage.setItem(STORAGE, JSON.stringify(payload));
     } catch {
       // A private window can refuse storage. The check still works without it.
     }
-  }, [hydrated, step, answers, sample, pinned, sessionId, fromSample]);
+  }, [hydrated, step, answers, sample, pinned, sessionId, fromSample, cohort, actions, barrierVia]);
 
   function later(fn: () => void) {
     if (timer.current) window.clearTimeout(timer.current);
@@ -205,6 +226,8 @@ export function Navigator() {
     setOpenTrace(false);
     setSheet(null);
     setOpened([]);
+    setActions([]);
+    setBarrierVia("tap");
     setSent("idle");
     setSentStage(null);
     setGap(null);
@@ -383,6 +406,9 @@ export function Navigator() {
       rentDays: result.answers.rentDays ?? null,
       fromSample,
       datasetVersion,
+      cohort,
+      actions,
+      barrierVia,
     };
     try {
       await sendSession({ data: bag });
@@ -404,6 +430,7 @@ export function Navigator() {
           JSON.stringify(result.toggles),
           JSON.stringify(result.answers),
           gap ?? "",
+          actions.join(","),
         ].join("|")
       : "";
 
@@ -455,7 +482,21 @@ export function Navigator() {
     body = (
       <BarrierStep
         value={answers.barrier}
-        onPick={(id) => patch({ barrier: id, uses: usesForBarrier(id) }, "parking")}
+        onPick={(id) => {
+          setBarrierVia("tap");
+          patch({ barrier: id, uses: usesForBarrier(id) }, "parking");
+        }}
+        wordsBox={
+          wordsOn ? (
+            <WordsBox
+              ask={(words) => askWords({ data: { words } })}
+              onConfirm={(id) => {
+                setBarrierVia("words");
+                patch({ barrier: id, uses: usesForBarrier(id) }, "parking");
+              }}
+            />
+          ) : null
+        }
         onSample={showSample}
         onFact={openFact}
       />
@@ -595,6 +636,7 @@ export function Navigator() {
         cantonState={cantonState}
         onCanton={(code) => void pickCanton(code)}
         onAdjust={adjust}
+        onAction={record}
         onPostcode={usePostcode}
         grain={homeGrain}
       />
@@ -639,7 +681,11 @@ export function Navigator() {
           </ol>
         </aside>
         <div className="relative flex h-dvh flex-col bg-sheet md:my-6 md:h-auto md:max-h-[calc(100dvh-3rem)] md:min-h-[calc(100dvh-3rem)] md:rounded-3xl md:border md:border-line">
-          <div ref={scroller} className="safe-pad flex min-h-0 flex-1 flex-col overflow-y-auto">{body}</div>
+          <div ref={scroller} className="safe-pad flex min-h-0 flex-1 flex-col overflow-y-auto">
+            <div key={step} className="step-in flex flex-1 flex-col">
+              {body}
+            </div>
+          </div>
           {soFar}
           {sheet ? (
             <FactSheet
@@ -722,11 +768,13 @@ function railIndex(step: Step, planSent: boolean): number {
 function BarrierStep({
   value,
   onPick,
+  wordsBox,
   onSample,
   onFact,
 }: {
   value: Barrier | null;
   onPick: (id: Barrier) => void;
+  wordsBox: ReactNode;
   onSample: () => void;
   onFact: (fact: FactKey) => void;
 }) {
@@ -743,6 +791,7 @@ function BarrierStep({
             <Choice key={opt.id} title={opt.title} detail={opt.detail} selected={value === opt.id} onClick={() => onPick(opt.id)} />
           ))}
         </div>
+        {wordsBox}
         <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1">
           <button type="button" onClick={onSample} className="min-h-11 text-sm font-medium text-spruce">
             See a worked example
@@ -759,6 +808,87 @@ function BarrierStep({
   );
 }
 
+// Optional, off unless the server has WORDS_BOX=on. The words go out once, come back as one category, and are dropped.
+function WordsBox({
+  ask,
+  onConfirm,
+}: {
+  ask: (words: string) => Promise<{ barrier?: Barrier | null; error?: true }>;
+  onConfirm: (id: Barrier) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [suggest, setSuggest] = useState<{ barrier: Barrier | null } | "failed" | "declined" | null>(null);
+
+  async function send() {
+    setBusy(true);
+    try {
+      const out = await ask(text);
+      setSuggest("error" in out && out.error ? "failed" : { barrier: out.barrier ?? null });
+    } catch {
+      setSuggest("failed");
+    } finally {
+      setText("");
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="mt-2 min-h-11 text-left text-sm font-medium text-spruce">
+        Prefer to say it in your own words?
+      </button>
+    );
+  }
+  return (
+    <div className="mt-3 rounded-2xl border border-line bg-card p-4">
+      {suggest === null ? (
+        <>
+          <label htmlFor="own-words" className="text-sm font-medium">
+            What would still stop you?
+          </label>
+          <textarea
+            id="own-words"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            maxLength={280}
+            rows={3}
+            className="mt-2 w-full rounded-xl border border-line bg-sheet px-3 py-2 text-base"
+          />
+          <p className="mt-1 text-xs leading-snug text-muted">Your words go to an AI service to pick a category, then are dropped. No names or addresses, please.</p>
+          <button
+            type="button"
+            onClick={() => void send()}
+            disabled={busy || text.trim().length < 3}
+            className="mt-3 min-h-11 rounded-full bg-spruce px-5 text-sm font-medium text-spruce-ink disabled:opacity-50"
+          >
+            {busy ? "Picking" : "Pick a category"}
+          </button>
+        </>
+      ) : suggest === "failed" || suggest === "declined" || suggest.barrier == null ? (
+        <p className="text-sm leading-snug">
+          {suggest === "failed" ? "That did not work." : suggest === "declined" ? "Okay." : "I could not tell."} Please tap one of the options above.
+        </p>
+      ) : (
+        <>
+          <p className="text-sm leading-snug">
+            That sounds like <span className="font-medium">“{labelBarrier(suggest.barrier)}”</span>. Is that right?
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" onClick={() => onConfirm(suggest.barrier as Barrier)} className="min-h-11 rounded-full bg-spruce px-5 text-sm font-medium text-spruce-ink">
+              Yes, that is it
+            </button>
+            <button type="button" onClick={() => setSuggest("declined")} className="min-h-11 rounded-full border border-line px-5 text-sm font-medium">
+              No, I will tap
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 const LEVER_PHRASE: Record<LeverKey, string> = {
   used: "a used car with a checked battery",
   rightSize: "one class down, with the rare days rented",
@@ -768,6 +898,61 @@ const LEVER_PHRASE: Record<LeverKey, string> = {
   tariff: "a cheaper home tariff",
   pv: "solar on the roof",
 };
+
+function OrdinaryWeek({ result }: { result: Result }) {
+  const w = ordinaryWeek(result);
+  const km = Math.max(10, Math.round(w.weekKm / 10) * 10);
+  const pct = Math.round(w.share * 100);
+  const fill = Math.min(w.share, 1) * 100;
+  const parts = [
+    { id: "home", label: "Home", value: w.mix.home, color: "#1f4a38" },
+    { id: "work", label: "Work", value: w.mix.work, color: "#6f9a85" },
+    { id: "public", label: "Public", value: w.mix.public, color: "#6a4a12" },
+  ].filter((p) => p.value > 0.005);
+  const range = Math.round(w.fullChargeKm / 10) * 10;
+  return (
+    <section className="rounded-2xl border border-line bg-card p-4" aria-labelledby="week-title">
+      <h2 id="week-title" className="font-medium">
+        Your ordinary week, in battery
+      </h2>
+      <p className="font-serif mt-2 text-2xl tabular-nums leading-snug">About {km} km a week</p>
+      <div
+        role="img"
+        aria-label={`${pct} percent of one ${w.battery} kilowatt-hour battery. ${parts.map((p) => `${p.label} ${Math.round(p.value * 100)} percent`).join(", ")}.`}
+        className="mt-3 flex h-3 overflow-hidden rounded-full bg-line"
+      >
+        <div className="flex h-full" style={{ width: `${fill}%` }}>
+          {parts.map((p) => (
+            <span key={p.id} className="h-full" style={{ width: `${p.value * 100}%`, background: p.color }} />
+          ))}
+        </div>
+      </div>
+      <div className="mt-1 flex justify-between text-xs text-muted" aria-hidden>
+        <span>0</span>
+        <span>one {w.battery} kWh battery</span>
+      </div>
+      <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+        {parts.map((p) => (
+          <li key={p.id} className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: p.color }} aria-hidden />
+            {p.label} {Math.round(p.value * 100)} %
+          </li>
+        ))}
+      </ul>
+      <p className="mt-3 text-sm leading-relaxed">
+        {w.share > 1
+          ? `That is more than one full battery a week (${pct} %).`
+          : `That is about ${pct} % of one battery.`}{" "}
+        {w.coversWeek
+          ? `One full charge would cover the whole week, about ${range} km.`
+          : `One full charge covers about ${range} km, less than this week. It would take a stop on the way.`}
+      </p>
+      <p className="mt-2 text-xs leading-relaxed text-muted">
+        The week is the yearly kilometres divided by 52, spread evenly. Battery size is a class placeholder and consumption is the class figure. No winter factor, no motorway speed. It does not change a franc.
+      </p>
+    </section>
+  );
+}
 
 function WhatWouldHaveToBeTrue({ result, onTry }: { result: Result; onTry: (key: keyof Toggles) => void }) {
   const c: Counterfactual = wouldHaveToBeTrue(result);
@@ -1124,9 +1309,11 @@ function ResultView({
   cantonState,
   onCanton,
   onAdjust,
+  onAction,
   onPostcode,
   grain,
 }: {
+  onAction: (action: Action) => void;
   result: Result;
   sample: boolean;
   openMore: boolean;
@@ -1160,6 +1347,7 @@ function ResultView({
   const [barNote, setBarNote] = useState<string | null>(null);
   useEffect(() => {
     if (gap !== "payback") return;
+    onAction("fold_why");
     setFolds((f) => ({ ...f, why: true }));
     const id = window.setTimeout(() => document.getElementById("how-payback")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
     return () => window.clearTimeout(id);
@@ -1323,6 +1511,8 @@ function ResultView({
           </p>
         </div>
 
+        <OrdinaryWeek result={result} />
+
         <section className="rounded-2xl border border-line bg-card p-4">
           <h2 className="font-medium">What is still open</h2>
           <p className="mt-2 text-sm leading-relaxed">
@@ -1333,7 +1523,13 @@ function ResultView({
           </p>
         </section>
 
-        <WhatWouldHaveToBeTrue result={result} onTry={onFlip} />
+        <WhatWouldHaveToBeTrue
+          result={result}
+          onTry={(key) => {
+            onAction("try_lever");
+            onFlip(key);
+          }}
+        />
 
         <section>
           <h2 className="font-medium">Next steps</h2>
@@ -1455,14 +1651,17 @@ function ResultView({
           <span className="mt-1 block text-sm font-medium text-spruce">Edit answers</span>
         </button>
 
-        <ShareNote result={result} />
+        <ShareNote result={result} onAction={onAction} />
 
         <Fold
           id="why"
           title="Why this result"
           line="The payback sum, what the year is made of, where the electric kilometres charge, and the worries the francs do not close."
           open={folds.why}
-          onToggle={() => setFolds((f) => ({ ...f, why: !f.why }))}
+          onToggle={() => {
+            if (!folds.why) onAction("fold_why");
+            setFolds((f) => ({ ...f, why: !f.why }));
+          }}
         >
         <section id="how-payback" className="rounded-2xl border border-line bg-card p-4">
           <h2 className="font-medium">What the payback year is for</h2>
@@ -1523,7 +1722,10 @@ function ResultView({
           title="What went into the number"
           line="Every figure with its tag and source, how it was decided, and the place."
           open={folds.evidence}
-          onToggle={() => setFolds((f) => ({ ...f, evidence: !f.evidence }))}
+          onToggle={() => {
+            if (!folds.evidence) onAction("fold_evidence");
+            setFolds((f) => ({ ...f, evidence: !f.evidence }));
+          }}
         >
         <section className="rounded-2xl border border-line bg-card">
           <h2 className="px-4 pt-4 font-medium">What went into the number</h2>
@@ -1675,13 +1877,16 @@ function ResultView({
       </div>
       <ActionBar
         note={barNote}
-        onShare={() =>
+        onShare={() => {
+          onAction("share");
           void shareOrCopy(shareText(result)).then((how) => {
             setBarNote(how === "copied" ? "Copied. Paste it where you like." : how === "failed" ? "Could not share from here. Use “Ask someone else” below." : null);
-          })
-        }
+          });
+        }}
         onChange={() => document.getElementById("levers")?.scrollIntoView({ behavior: "smooth", block: "start" })}
         onDetails={() => {
+          onAction("fold_why");
+          onAction("fold_evidence");
           setFolds({ why: true, evidence: true });
           window.setTimeout(() => document.getElementById("why")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
         }}
@@ -2081,12 +2286,13 @@ function shareText(result: Result): string {
     .join("\n");
 }
 
-function PictureCard({ result, text }: { result: Result; text: string }) {
+function PictureCard({ result, text, onAction }: { result: Result; text: string; onAction: (action: Action) => void }) {
   const [pic, setPic] = useState<{ url: string; blob: Blob } | null>(null);
   const [state, setState] = useState<"idle" | "making" | "failed">("idle");
   const url = pic?.url;
   useEffect(() => () => (url ? URL.revokeObjectURL(url) : undefined), [url]);
   const make = async () => {
+    onAction("picture");
     setState("making");
     try {
       const host = /^(localhost|127\.|\[)/.test(window.location.hostname) ? null : window.location.host;
@@ -2127,7 +2333,7 @@ function PictureCard({ result, text }: { result: Result; text: string }) {
   );
 }
 
-function ShareNote({ result }: { result: Result }) {
+function ShareNote({ result, onAction }: { result: Result; onAction: (action: Action) => void }) {
   const [copied, setCopied] = useState(false);
   const text = shareText(result);
   return (
@@ -2141,6 +2347,7 @@ function ShareNote({ result }: { result: Result }) {
           href={`https://wa.me/?text=${encodeURIComponent(text)}`}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={() => onAction("share")}
           className="flex min-h-12 items-center rounded-2xl border border-line bg-card px-4 text-sm font-medium"
         >
           WhatsApp
@@ -2148,6 +2355,7 @@ function ShareNote({ result }: { result: Result }) {
         <button
           type="button"
           onClick={() => {
+            onAction("share");
             const finish = () => {
               setCopied(true);
             };
@@ -2164,10 +2372,11 @@ function ShareNote({ result }: { result: Result }) {
         >
           {copied ? "Copied. Paste it where you like." : "Copy the note"}
         </button>
-        <PictureCard key={`${result.headline}-${result.annualKeep}-${result.annualSwap}-${result.cash}`} result={result} text={text} />
+        <PictureCard key={`${result.headline}-${result.annualKeep}-${result.annualSwap}-${result.cash}`} result={result} text={text} onAction={onAction} />
         <button
           type="button"
           onClick={() => {
+            onAction("reminder");
             const url = window.location.hostname === "localhost" ? null : window.location.origin;
             const blob = new Blob([revisitIcs(new Date(), 6, url)], { type: "text/calendar" });
             const href = URL.createObjectURL(blob);

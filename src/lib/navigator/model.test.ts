@@ -5,7 +5,7 @@ import type { Answers, Toggles } from "./model.ts";
 
 const A = (over: Partial<Answers>): Answers => ({ ...EMPTY, ...over });
 
-// Golden scenarios. Numbers pinned from the model as reviewed on 2 Oct 2026 (MODEL 2026-10-02-r2).
+// Golden scenarios. Numbers pinned from the model as reviewed on 2 Oct 2026 (MODEL 2026-10-03-r3).
 // A failing golden means the arithmetic moved: check it is intended, then bump MODEL and re-pin.
 const GOLDEN: {
   name: string;
@@ -26,7 +26,7 @@ const GOLDEN: {
   { name: "not sure kilometres", a: A({ barrier: "unsure", carClass: "compact", fuel: "petrol", uses: ["everyday"], km: "unsure", parking: "unsure" }), headline: "Keep this car", keep: 3471, swap: 2256, cash: 27900, saving: 1215, year: 23, within: false, km: 11000 },
   { name: "low kilometres", a: A({ barrier: "cost", carClass: "small", fuel: "petrol", uses: ["everyday"], km: "lt10", parking: "none" }), headline: "Keep this car", keep: 2483, swap: 1944, cash: 12250, saving: 539, year: 23, within: false, km: 8000 },
   { name: "high kilometres, used ok", a: A({ barrier: "cost", carClass: "mid", fuel: "diesel", uses: ["business", "long"], km: "gt20", parking: "house", usedStance: "yes" }), headline: "The extra price is covered here", keep: 5776, swap: 3620, cash: 9850, saving: 2156, year: 5, within: true, km: 24000 },
-  { name: "hybrid SUV, distrusts used", a: A({ barrier: "trust", carClass: "suv", fuel: "hybrid", uses: ["everyday"], km: "mid", parking: "own", usedStance: "no" }), headline: "Keep this car", keep: 4588, swap: 3697, cash: 44600, saving: 891, year: 51, within: false, km: 14000 },
+  { name: "hybrid SUV, distrusts used", a: A({ barrier: "trust", carClass: "suv", fuel: "hybrid", uses: ["everyday"], km: "mid", parking: "own", usedStance: "no" }), headline: "Keep this car", keep: 4844, swap: 3697, cash: 44600, saving: 1147, year: 39, within: false, km: 14000 },
   { name: "diesel van, business", a: A({ barrier: "charging", carClass: "van", fuel: "diesel", uses: ["business"], km: "gt20", parking: "own", workAccess: "yes" }), headline: "Keep this car", keep: 7178, swap: 3972, cash: 42900, saving: 3206, year: 14, within: false, km: 24000 },
   { name: "nothing answered", a: EMPTY, headline: "Keep this car", keep: 3471, swap: 2735, cash: 26400, saving: 736, year: 36, within: false, km: 11000 },
 ];
@@ -121,4 +121,13 @@ test("research record has no field outside the whitelist and no free text", () =
   for (const key of Object.keys(rec)) assert.ok(WHITELIST.has(key), `unexpected field: ${key}`);
   const text = JSON.stringify(rec);
   assert.doesNotMatch(text, /8001|Hans|script/);
+});
+
+// A hybrid buys petrol: its litre price is petrol's, and only its consumption is lower.
+test("hybrid pays the petrol litre price", () => {
+  const base = { ...EMPTY, barrier: "cost" as const, carClass: "compact" as const, uses: ["everyday" as const], km: "mid" as const, parking: "own" as const };
+  const hybrid = evaluate({ ...base, fuel: "hybrid" }, suggestToggles({ ...base, fuel: "hybrid" }));
+  const petrol = evaluate({ ...base, fuel: "petrol" }, suggestToggles({ ...base, fuel: "petrol" }));
+  assert.ok(hybrid.annualKeep < petrol.annualKeep, "lower consumption still makes it cheaper to run");
+  assert.match(hybrid.parts[0].how, /1\.79 francs a litre/);
 });
