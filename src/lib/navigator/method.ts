@@ -50,9 +50,9 @@ export const LEFT_OUT: Left[] = [
   {
     id: "climate",
     title: "Climate, shown beside the money",
-    why: "A published comparison of two new cars is shown on request. It never enters the francs and is not calculated for your kilometres.",
+    why: "The federal study on when a switch lowers greenhouse gases is shown by distance driven, in Sources. It never enters the francs and is not a personal figure.",
     effect: "unclear",
-    source: { name: "FOEN, 27 April 2023", href: "https://www.bafu.admin.ch/dam/de/sd-web/-1KADIYDsYhT/umweltauswirkungen-von-personenwagen-mit-verschiedenen-antriebssystemen.pdf" },
+    source: { name: "EnergieSchweiz, January 2025", href: "https://pubdb.bfe.admin.ch/de/publication/download/12158" },
   },
   {
     id: "time",

@@ -1,4 +1,5 @@
 import { BANDS, band, cleanPostcode, money } from "./bands.ts";
+import { ACTION_IDS, cleanOutcomes } from "./actions.ts";
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { FACTS, type Fact, type FactKey } from "@/lib/navigator/facts";
@@ -307,6 +308,9 @@ export type SessionBag = {
   postcode?: string | null;
   /** Optional. Asked as three taps when no postcode is given. */
   settlement?: string | null;
+  /** The next move shown first (an action id), and the person's taps on moves: "<id>.done" and so on. Closed lists. */
+  moveShown?: string | null;
+  outcomes?: string[];
   fromSample?: boolean;
   datasetVersion?: string;
   cohort?: string | null;
@@ -414,6 +418,7 @@ export const saveSession = createServerFn({ method: "POST" })
       cohort: cleanCohort(data.cohort),
       actions: cleanActions(data.actions),
       barrierVia: cleanVia(data.barrierVia),
+      nextMove: { shown: typeof data.moveShown === "string" && ACTION_IDS.includes(data.moveShown) ? data.moveShown : null, outcomes: cleanOutcomes(data.outcomes) },
       // Coarse place only. The postcode itself goes to bev_locations below, not into this payload.
       location: {
         canton: one(data.canton, ONE_OF.canton),

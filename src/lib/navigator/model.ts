@@ -227,6 +227,14 @@ export const SOURCES = {
     notThis: "2022 prices, and an insurance profile in Aarau. Not these francs.",
     url: "https://www.newsd.admin.ch/newsd/message/attachments/76392.pdf",
   },
+  "bfe-2025": {
+    title: "Kaufentscheid: when it pays to switch to an electric car (climate)",
+    publisher: "EnergieSchweiz (INFRAS for the Swiss Federal Office of Energy)",
+    published: "6 January 2025",
+    supports: "About 92 percent of the car pairs compared save greenhouse gases when a combustion car is replaced by a new electric car of the same class. From about 8,000 km a year, replacing is almost always worth it for the climate. Under about 4,000 to 5,000 km usually not.",
+    notThis: "Climate only, not francs. It assumes a 16-year life, 200,000 km and the Swiss consumer electricity mix. Not this person's car.",
+    url: "https://pubdb.bfe.admin.ch/de/publication/download/12158",
+  },
   "foen-2023": {
     title: "Environmental impact of passenger cars",
     publisher: "Federal Office for the Environment",

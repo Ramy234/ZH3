@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 type Point = { year: number; keep: number; swap: number };
 
-export function CostChart({ data }: { data: Point[] }) {
+export function CostChart({ data, ghost }: { data: Point[]; ghost?: Point[] | null }) {
   const [lib, setLib] = useState<typeof import("recharts") | null>(null);
 
   useEffect(() => {
@@ -20,11 +20,12 @@ export function CostChart({ data }: { data: Point[] }) {
   }
 
   const { Line, LineChart, ResponsiveContainer, XAxis, YAxis } = lib;
+  const rows = ghost ? data.map((p, i) => ({ ...p, ghost: ghost[i]?.swap })) : data;
 
   return (
     <div className="h-52 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 8, right: 8, left: 4, bottom: 4 }}>
+        <LineChart data={rows} margin={{ top: 8, right: 8, left: 4, bottom: 4 }}>
           <XAxis
             dataKey="year"
             tickLine={false}
@@ -41,6 +42,7 @@ export function CostChart({ data }: { data: Point[] }) {
           />
           <Line type="monotone" dataKey="keep" stroke="var(--color-ink)" strokeWidth={2} dot={false} strokeDasharray="5 4" />
           <Line type="monotone" dataKey="swap" stroke="var(--color-spruce)" strokeWidth={3} dot={false} />
+          {ghost ? <Line type="monotone" dataKey="ghost" stroke="#7a9a1a" strokeWidth={3} dot={false} strokeDasharray="2 3" isAnimationActive={false} /> : null}
         </LineChart>
       </ResponsiveContainer>
     </div>

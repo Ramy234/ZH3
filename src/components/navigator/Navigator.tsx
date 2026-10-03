@@ -25,10 +25,12 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
-import { BatteryProgress, CostBars, PaybackRuler, Tornado } from "@/components/navigator/viz";
-import { paybackWord, sensitivity } from "@/lib/navigator/sensitivity";
+import { BatteryProgress, CostBars, PaybackRuler } from "@/components/navigator/viz";
+import { paybackWord, scenario as runScenario, sensitivity } from "@/lib/navigator/sensitivity";
+import { ExploreTabs, NextMove, WhatIf, type PanelDef } from "@/components/navigator/result-parts";
+import { BatteryAge, YearDays } from "@/components/navigator/idea-diagrams";
+import { featuresOf, rankActions } from "@/lib/navigator/actions";
 import { CostChart } from "@/components/navigator/CostChart";
-import { ClimateChart } from "@/components/navigator/ClimateChart";
 import { FACTS, FACT_VIEW, type Fact, type FactKey } from "@/lib/navigator/facts";
 import { applyDataset, seedRows, type DatasetRow } from "@/lib/navigator/dataset";
 import { numberSheet, type SheetKind } from "@/lib/navigator/numbers";
@@ -166,6 +168,9 @@ export function Navigator() {
   const [homeGrain, setHomeGrain] = useState<"municipality" | null>(null);
   // Optional place. The postcode is sent once with the result and stored apart from the answers; the settlement is a tap.
   const [postcode, setPostcode] = useState<string | null>(null);
+  // The next move shown first, and what the person said about each move. Closed values only: "<action id>.<outcome>".
+  const [outcomes, setOutcomes] = useState<string[]>([]);
+  const [moveShown, setMoveShown] = useState<string | null>(null);
   const [settlement, setSettlement] = useState<"city" | "town" | "rural" | null>(null);
   const [sent, setSent] = useState<"idle" | "sending" | "saved" | "failed">("idle");
   const [sentStage, setSentStage] = useState<"mid" | "final" | null>(null);
@@ -441,6 +446,8 @@ export function Navigator() {
       rentDays: result.answers.rentDays ?? null,
       postcode,
       settlement,
+      moveShown,
+      outcomes,
       fromSample,
       datasetVersion,
       cohort,
@@ -464,6 +471,8 @@ export function Navigator() {
           result.canton ?? "",
           postcode ?? "",
           settlement ?? "",
+          moveShown ?? "",
+          outcomes.join(","),
           result.homeOfficial ? "1" : "0",
           opened.join(","),
           JSON.stringify(result.toggles),
@@ -686,6 +695,14 @@ export function Navigator() {
           setSentStage(null);
         }}
         postcodeSet={postcode != null}
+        outcomes={outcomes}
+        onOutcome={(key) => {
+          const id = key.slice(0, key.lastIndexOf("."));
+          setOutcomes((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev.filter((k) => !k.startsWith(`${id}.`)), key]));
+          setSent("idle");
+          setSentStage(null);
+        }}
+        onShown={setMoveShown}
         datasetRows={datasetRows}
         datasetVersion={datasetVersion}
       />
@@ -906,17 +923,33 @@ function BarrierStep({
           ))}
         </div>
         {wordsBox}
-        <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1">
-          <button type="button" onClick={onSample} className="min-h-11 text-sm font-medium text-spruce">
-            See a worked example
-          </button>
-          <button type="button" onClick={() => onFact("two-for-one")} className="min-h-11 text-sm font-medium text-spruce">
-            The 2:1 idea
-          </button>
-          <button type="button" onClick={() => onFact("battery")} className="min-h-11 text-sm font-medium text-spruce">
-            Battery certificates
+        <div className="mt-4 rounded-2xl border border-line bg-card p-4">
+          <p className="text-sm font-medium">Not sure where to start?</p>
+          <p className="mt-1 text-sm leading-relaxed text-muted">Start from a typical case. It is filled in for you and clearly marked, and you can change any answer.</p>
+          <button type="button" onClick={onSample} className="mt-2 inline-flex min-h-11 items-center rounded-full border border-spruce px-4 text-sm font-medium text-spruce">
+            Start from a typical case
           </button>
         </div>
+        <section className="mt-6" aria-labelledby="ideas-title">
+          <h2 id="ideas-title" className="text-xs font-medium tracking-widest text-muted uppercase">Ideas worth knowing</h2>
+          <ul className="mt-2 grid gap-2 sm:grid-cols-3">
+            {(
+              [
+                ["two-for-one", "2:1", "A smaller car, and a bigger one only on the days you need it", "See a year of days"],
+                ["battery", "Battery", "A used car's battery, checked by its age, now with a free warranty", "See it by car age"],
+                ["mobile-charger", "Charger", "Charging in a shared garage without rebuilding it", "See what exists"],
+              ] as const
+            ).map(([key, tag, title, cta]) => (
+              <li key={key}>
+                <button type="button" onClick={() => onFact(key)} className="flex h-full min-h-11 w-full flex-col rounded-2xl border border-line bg-card p-3 text-left">
+                  <span className="text-xs font-medium tracking-widest text-spruce uppercase">{tag}</span>
+                  <span className="mt-1 text-sm font-medium leading-snug">{title}</span>
+                  <span className="mt-2 text-xs font-medium text-spruce underline underline-offset-2">{cta}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
       </div>
     </div>
   );
@@ -1137,26 +1170,6 @@ function ActionBar({ onShare, onChange, onDetails, note }: { onShare: () => void
         </button>
       </div>
     </div>
-  );
-}
-
-function Fold({ id, title, line, open, onToggle, children }: { id: string; title: string; line: string; open: boolean; onToggle: () => void; children: ReactNode }) {
-  return (
-    <section id={id}>
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        className="flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl border border-line bg-card px-4 py-3 text-left"
-      >
-        <span className="min-w-0">
-          <span className="block font-medium">{title}</span>
-          <span className="mt-0.5 block text-sm leading-snug text-muted">{line}</span>
-        </span>
-        <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
-      </button>
-      {open ? <div className="mt-4 flex flex-col gap-4">{children}</div> : null}
-    </section>
   );
 }
 
@@ -1467,9 +1480,15 @@ function ResultView({
   settlement,
   onSettlement,
   postcodeSet,
+  outcomes,
+  onOutcome,
+  onShown,
   datasetRows,
   datasetVersion,
 }: {
+  outcomes: string[];
+  onOutcome: (key: string) => void;
+  onShown: (id: string | null) => void;
   datasetRows: DatasetRow[];
   datasetVersion: string | undefined;
   onAction: (action: Action) => void;
@@ -1503,17 +1522,35 @@ function ResultView({
   onSettlement: (v: "city" | "town" | "rural" | null) => void;
   postcodeSet: boolean;
 }) {
-  const [climateOpen, setClimateOpen] = useState(false);
   const sens = useMemo(() => sensitivity(result), [result]);
   const [sheetKind, setSheetKind] = useState<SheetKind | null>(null);
   const frame = result.answers.keepYears ?? 8;
-  // Two closed folds hold the reasoning and the evidence. The decision, the next steps and the levers stay on the page.
-  const [folds, setFolds] = useState({ why: false, evidence: false });
+  const [panel, setPanel] = useState<PanelDef["id"]>("whatif");
+  const [picks, setPicks] = useState<Record<string, number>>({});
   const [barNote, setBarNote] = useState<string | null>(null);
+  const scen = useMemo(
+    () => (sens ? runScenario(result, Object.fromEntries(Object.entries(picks).map(([k, v]) => [k, v / 4]))) : null),
+    [result, sens, picks],
+  );
+  const scenOutcome = scen ? { payback: scen.paybackYears != null && scen.saving > 40 ? scen.paybackYears : null, saving: scen.saving } : null;
+  const ranked = useMemo(() => rankActions(featuresOf(result), (sens?.drivers ?? []).map((d) => ({ id: d.id, label: d.label }))), [result, sens]);
+  const shownId = ranked.find((r) => !outcomes.some((o) => o === `${r.action.id}.done` || o === `${r.action.id}.not_for_me`))?.action.id ?? null;
+  useEffect(() => {
+    onShown(shownId);
+  }, [shownId]);
+  // One panel is open at a time, so the page stays short. Opening one jumps to it, or to a named spot.
+  function openPanel(id: PanelDef["id"], scrollTo: string | null) {
+    if (id === "sources" && panel !== "sources") {
+      onAction("fold_evidence");
+      onAction("fold_why");
+    }
+    setPanel(id);
+    if (scrollTo) window.setTimeout(() => document.getElementById(scrollTo)?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+  }
   useEffect(() => {
     if (gap !== "payback") return;
     onAction("fold_why");
-    setFolds((f) => ({ ...f, why: true }));
+    setPanel("sources");
     const id = window.setTimeout(() => document.getElementById("how-payback")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
     return () => window.clearTimeout(id);
   }, [gap]);
@@ -1587,15 +1624,23 @@ function ResultView({
               <div className="mt-5 border-t border-white/15 pt-4">
                 <p className="text-xs font-medium tracking-widest text-spruce-ink/70 uppercase">When the savings cover the extra price</p>
                 <div className="mt-3">
-                  <PaybackRuler base={sens.base} best={sens.best} worst={sens.worst} frame={frame} tone="dark" />
+                  <PaybackRuler base={sens.base} best={sens.best} worst={sens.worst} frame={frame} tone="dark" scenario={scenOutcome} />
                 </div>
+                {scenOutcome ? (
+                  <p className="mt-2 text-sm leading-snug text-spruce-ink" aria-live="polite">
+                    <span className="font-medium text-volt">With your changes: {paybackWord(scenOutcome)}</span>, saving {chf(scenOutcome.saving)} a year.{" "}
+                    <button type="button" onClick={() => setPicks({})} className="min-h-11 font-medium underline underline-offset-2">
+                      Back to my answers
+                    </button>
+                  </p>
+                ) : null}
                 <div className="mt-1 flex flex-wrap gap-x-5">
                   <button type="button" onClick={() => setSheetKind("payback")} className="min-h-11 py-2 text-sm font-medium text-volt underline underline-offset-2">
                     How the year is worked out
                   </button>
-                  <a href="#how-sure" className="inline-block min-h-11 py-2 text-sm font-medium text-volt underline underline-offset-2">
-                    How sure is this?
-                  </a>
+                  <button type="button" onClick={() => openPanel("whatif", "explore")} className="inline-block min-h-11 py-2 text-sm font-medium text-volt underline underline-offset-2">
+                    Move a figure
+                  </button>
                 </div>
               </div>
             ) : null}
@@ -1606,9 +1651,9 @@ function ResultView({
         </div>
         <div className="flex flex-col gap-4">
         <div>
-          <div className="rounded-2xl border border-line bg-card p-3 lg:p-5">
+          <div id="chart" className="scroll-mt-4 rounded-2xl border border-line bg-card p-3 lg:p-5">
             <p className="text-xs text-muted">Total cost in thousand francs (left), year by year (bottom).</p>
-            <div className="mt-2 flex gap-5 text-sm text-ink">
+            <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-ink">
               <span className="flex items-center gap-2">
                 <span className="w-8 border-t-2 border-dashed border-ink" />
                 Keep
@@ -1617,8 +1662,14 @@ function ResultView({
                 <span className="h-[3px] w-8 rounded-full bg-spruce" />
                 Switch
               </span>
+              {scen ? (
+                <span className="flex items-center gap-2">
+                  <span className="w-8 border-t-[3px] border-dotted border-[#7a9a1a]" />
+                  With your changes
+                </span>
+              ) : null}
             </div>
-            <CostChart data={result.series} />
+            <CostChart data={result.series} ghost={scen?.series ?? null} />
             <p className="mt-2 text-xs text-muted">How long would you keep the next car? The headline follows this. The payback year does not.</p>
             <div className="mt-1 flex gap-1.5">
               {([8, 12, 16, 24, 32] as const).map((years) => {
@@ -1690,15 +1741,9 @@ function ResultView({
               {SOURCES["tco-2023"].title}, {SOURCES["tco-2023"].published}
             </a>
           </div>
-          <button
-            type="button"
-            aria-expanded={climateOpen}
-            onClick={() => setClimateOpen((v) => !v)}
-            className="text-left text-sm font-medium text-spruce"
-          >
-            {climateOpen ? "Hide the climate comparison" : "Climate, if you want the comparison"}
+          <button type="button" onClick={() => openPanel("sources", "climate")} className="min-h-11 text-left text-sm font-medium text-spruce">
+            Climate, beside the money
           </button>
-          {climateOpen ? <ClimateLine alreadyElectric={result.answers.fuel === "electric"} /> : null}
           <p className="mt-3 text-sm leading-relaxed">
             <span className="font-medium">{paybackTitle(result)}.</span>{" "}
             {result.paybackYears == null || result.saving <= 40
@@ -1709,98 +1754,40 @@ function ResultView({
           </p>
         </div>
 
-        <OrdinaryWeek result={result} />
-
-        <section className="rounded-2xl border border-line bg-card p-4">
-          <h2 className="font-medium">What is still holding you back</h2>
-          <p className="mt-2 text-sm leading-relaxed">
-            You said: “{labelBarrier(result.answers.barrier ?? "unsure")}”.{" "}
-            {result.steps[0]
-              ? `${result.steps[0].title}. ${result.steps[0].detail}`
-              : "Nothing more is priced until you change a setting or a figure."}
-          </p>
-        </section>
-
-        {sens ? (
-          <section id="how-sure" className="rounded-2xl border border-line bg-card p-4 lg:p-5">
-            <h2 className="font-medium">How sure is this?</h2>
-            <p className="mt-1 text-sm leading-relaxed text-muted">
-              Most of these figures are assumptions, not quotes. Here each one is moved on its own and the same sum is run again. Each bar runs from the fast end to the slow end. The black tick is your result above.
-            </p>
-            <div className="mt-4">
-              <Tornado drivers={sens.drivers} base={sens.base} frame={frame} worst={sens.worst} />
-            </div>
-            <p className="mt-4 text-sm leading-relaxed">
-              Moved together, the fast case reaches <span className="font-medium">{paybackWord(sens.best)}</span> and the slow case <span className="font-medium">{paybackWord(sens.worst)}</span>. Your result is <span className="font-medium">{paybackWord(sens.base)}</span>.
-            </p>
-            <p className="mt-2 text-xs leading-relaxed text-muted">
-              This is a range, not a forecast, and it carries no probability. The steps are our choice, not a measured spread. One assumption moves at a time, so combined effects show only in the fast and slow cases. Taxes, grants and winter are not in it.
-            </p>
-          </section>
-        ) : null}
-
-        <section className="rounded-2xl border border-line bg-card p-4 lg:p-5">
-          <h2 className="font-medium">Where a year of running goes</h2>
-          <p className="mt-1 text-sm leading-relaxed text-muted">Francs a year, line by line. The purchase price and the extra cash at the start are not in these bars.</p>
-          <div className="mt-4">
-            <CostBars parts={result.parts} />
-          </div>
-        </section>
-
-        <WhatWouldHaveToBeTrue
-          result={result}
-          onTry={(key) => {
-            onAction("try_lever");
-            onFlip(key);
+        <NextMove
+          ranked={ranked}
+          outcomes={outcomes}
+          onOutcome={onOutcome}
+          onCopy={(text) => void navigator.clipboard?.writeText(text)}
+          onRemind={() => {
+            onAction("reminder");
+            downloadReminder();
+          }}
+          onTry={(item) => {
+            const a = item.action;
+            if (a.lever && !result.toggles[a.lever]) {
+              onAction("try_lever");
+              onFlip(a.lever);
+            }
+            openPanel(a.panel ?? "whatif", a.lever ? "chart" : "explore");
           }}
         />
 
-        <LocalPerson
-          canton={canton}
-          cantonState={cantonState}
-          onCanton={onCanton}
-          onPostcode={onPostcode}
-          place={result.official?.place ?? null}
-          grain={grain}
-          settlement={settlement}
-          onSettlement={onSettlement}
-          postcodeSet={postcodeSet}
-        />
-
-        <section>
-          <h2 className="font-medium">Next steps</h2>
-          <ol className="mt-3 space-y-3">
-            {result.steps.map((s, i) => (
-              <li key={s.title} className="rounded-2xl border border-line bg-card px-4 py-3">
-                <p className="text-xs font-medium tracking-widest text-muted uppercase">Step {i + 1}</p>
-                <p className="mt-1 font-medium">{s.title}</p>
-                <p className="mt-1 text-sm leading-relaxed text-muted">{s.detail}</p>
-                {s.lines ? (
-                  <ul className="mt-2 list-disc space-y-1 pl-4 text-sm">
-                    {s.lines.map((line) => (
-                      <li key={line}>{line}</li>
-                    ))}
-                  </ul>
-                ) : null}
-                {s.lines ? (
-                  <button
-                    type="button"
-                    onClick={() => void navigator.clipboard.writeText(s.lines!.join("\n"))}
-                    className="mt-2 text-sm font-medium text-spruce"
-                  >
-                    Copy the list
-                  </button>
-                ) : null}
-                {s.link ? (
-                  <a className="mt-2 block text-sm font-medium text-spruce underline" href={s.link.href} target="_blank" rel="noopener noreferrer">
-                    {s.link.name}
-                  </a>
-                ) : null}
-              </li>
-            ))}
-          </ol>
-        </section>
-
+        <ExploreTabs panels={PANELS} value={panel} onChange={(id) => openPanel(id, null)}>
+          {panel === "whatif" ? (
+            sens ? (
+              <WhatIf
+                result={result}
+                sens={sens}
+                picks={picks}
+                onPick={(id, v) => setPicks((prev) => ({ ...prev, [id]: v }))}
+                onReset={() => setPicks({})}
+                scenario={scen}
+                rows={datasetRows}
+              >
+          <details className="mt-4 border-t border-line pt-1">
+            <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium text-spruce">Switches, what you use the car for, and what would have to be true</summary>
+            <div className="mt-2 flex flex-col gap-4">
         <section id="levers">
           <h2 className="font-medium">Try a change</h2>
           <p className="mt-1 text-sm leading-relaxed text-muted">
@@ -1878,27 +1865,153 @@ function ResultView({
           ) : null}
         </section>
 
-        <button type="button" onClick={onEdit} className="rounded-2xl border border-line bg-card px-4 py-3 text-left">
-          <span className="block text-xs font-medium tracking-widest text-muted uppercase">This case</span>
-          <span className="mt-1 block text-sm">
-            {labelClass(result.iceClass)} · {labelFuel(result.answers.fuel ?? "petrol")} · {kmPhrase(result.answers.km, result.km, result.kmSource === "default" ? result.persona.title : undefined)} ·{" "}
-            {parkPhrase(result.answers.parking)}
-          </span>
-          <span className="mt-1 block text-sm font-medium text-spruce">Edit answers</span>
-        </button>
-
-        <ShareNote result={result} onAction={onAction} />
-
-        <Fold
-          id="why"
-          title="Why this result"
-          line="The payback sum, what the year is made of, where the electric kilometres charge, and the worries the francs do not close."
-          open={folds.why}
-          onToggle={() => {
-            if (!folds.why) onAction("fold_why");
-            setFolds((f) => ({ ...f, why: !f.why }));
+        <WhatWouldHaveToBeTrue
+          result={result}
+          onTry={(key) => {
+            onAction("try_lever");
+            onFlip(key);
           }}
-        >
+        />
+
+            </div>
+          </details>
+              </WhatIf>
+            ) : (
+              <>
+        <section id="levers">
+          <h2 className="font-medium">Try a change</h2>
+          <p className="mt-1 text-sm leading-relaxed text-muted">
+            Each switch recalculates at once. The prices are rough class figures, not a quote and not an offer.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {(
+              [
+                result.answers.barrier === "trips" ||
+                result.toggles.rightSize ||
+                result.answers.uses.includes("holiday") ||
+                result.answers.uses.includes("long")
+                  ? { fact: "two-for-one" as const, label: "Read 2:1" }
+                  : null,
+                result.answers.barrier === "charging" ||
+                result.answers.parking === "shared" ||
+                result.answers.parking === "none" ||
+                result.answers.parking === "unsure"
+                  ? { fact: "mobile-charger" as const, label: "Read mobile charger" }
+                  : null,
+                result.answers.barrier === "trust" || result.toggles.used || result.answers.usedStance === "yes"
+                  ? { fact: "battery" as const, label: "Read battery check" }
+                  : null,
+                result.answers.barrier === "cost" || result.answers.barrier === "unsure" || !result.withinHorizon
+                  ? { fact: "public-tariff" as const, label: "Why prices are not live" }
+                  : null,
+                !result.canton ? { fact: "canton-tax" as const, label: "Why the tax is not your canton" } : null,
+                result.answers.parking === "house" || result.answers.parking === "own" || result.toggles.pv
+                  ? { fact: "local-grant" as const, label: "Grants and a solar roof" }
+                  : null,
+              ].filter((item) => item != null)
+                .slice(0, 3)
+            ).map((item) => (
+              <button key={item.fact} type="button" onClick={() => onFact(item.fact)} className="rounded-full border border-line bg-card px-3 py-2 text-sm">
+                {item.label}
+              </button>
+            ))}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {USES.map((u) => {
+              const on = result.answers.uses.includes(u.id);
+              return (
+                <button
+                  key={u.id}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => onUse(u.id)}
+                  className={`rounded-full border px-3 py-2 text-sm ${on ? "border-spruce bg-spruce text-spruce-ink" : "border-line bg-card"}`}
+                >
+                  {u.title}
+                </button>
+              );
+            })}
+          </div>
+          <div className="mt-3 flex flex-col gap-2">
+            {primary.map((row) => (
+              <ToggleRow key={row.key} row={row} on={result.toggles[row.key]} result={result} onFlip={onFlip} />
+            ))}
+          </div>
+          {result.towingBlocked ? (
+            <p className="mt-3 rounded-2xl bg-moss px-4 py-3 text-sm leading-relaxed text-moss-ink">
+              Towing is on, so the smaller car was not applied. Renting a few days does not replace a tow car.
+            </p>
+          ) : null}
+          <button type="button" onClick={onToggleMore} className="mt-3 flex min-h-11 w-full items-center justify-between text-sm font-medium" aria-expanded={openMore}>
+            Finer assumptions
+            <ChevronDown className={`h-4 w-4 transition-transform ${openMore ? "rotate-180" : ""}`} />
+          </button>
+          {openMore ? (
+            <div className="mt-2 flex flex-col gap-2">
+              {more.map((row) => (
+                <ToggleRow key={row.key} row={row} on={result.toggles[row.key]} result={result} onFlip={onFlip} />
+              ))}
+            </div>
+          ) : null}
+        </section>
+
+              </>
+            )
+          ) : null}
+          {panel === "week" ? (
+            <>
+        <OrdinaryWeek result={result} />
+
+        <section className="rounded-2xl border border-line bg-card p-4 lg:p-5">
+          <h2 className="font-medium">Where a year of running goes</h2>
+          <p className="mt-1 text-sm leading-relaxed text-muted">Francs a year, line by line. The purchase price and the extra cash at the start are not in these bars.</p>
+          <div className="mt-4">
+            <CostBars parts={result.parts} />
+          </div>
+        </section>
+
+        <YearSplit parts={result.parts} cash={result.cash} />
+        <ChargeMix blend={result.blend} homeOfficial={result.homeOfficial} place={result.official?.place ?? null} />
+
+        <div className="rounded-2xl bg-amber px-4 py-3 text-sm leading-relaxed text-amber-ink">{result.aha}</div>
+
+            </>
+          ) : null}
+          {panel === "place" ? (
+            <>
+        <LocalPerson
+          canton={canton}
+          cantonState={cantonState}
+          onCanton={onCanton}
+          onPostcode={onPostcode}
+          place={result.official?.place ?? null}
+          grain={grain}
+          settlement={settlement}
+          onSettlement={onSettlement}
+          postcodeSet={postcodeSet}
+        />
+
+        <section>
+          <h2 className="font-medium">If the number is not the whole worry</h2>
+          <p className="mt-1 text-sm leading-relaxed text-muted">
+            These are not priced, and they do not talk you into a car. Each page says what the worry is protecting, what is dated, and what this check will not pretend.
+          </p>
+          <div className="mt-3 flex flex-col gap-2">
+            <button type="button" onClick={() => onFact("tenant-right")} className="min-h-12 rounded-2xl border border-line bg-card px-4 text-left text-sm font-medium">
+              The building might say no
+            </button>
+            <button type="button" onClick={() => onFact("winter")} className="min-h-12 rounded-2xl border border-line bg-card px-4 text-left text-sm font-medium">
+              Winter, and the long trip
+            </button>
+            <button type="button" onClick={() => onFact("not-for-me")} className="min-h-12 rounded-2xl border border-line bg-card px-4 text-left text-sm font-medium">
+              I simply do not want one
+            </button>
+          </div>
+        </section>
+            </>
+          ) : null}
+          {panel === "sources" ? (
+            <>
         <section id="how-payback" className="rounded-2xl border border-line bg-card p-4">
           <h2 className="font-medium">What the payback year is for</h2>
           {result.paybackYears == null || result.saving <= 40 ? (
@@ -1929,40 +2042,6 @@ function ResultView({
           {result.paybackYears == null || result.saving <= 40 ? <SourceCards ids={["tco-2023", "tco-2023-report"]} /> : null}
         </section>
 
-        <YearSplit parts={result.parts} cash={result.cash} />
-        <ChargeMix blend={result.blend} homeOfficial={result.homeOfficial} place={result.official?.place ?? null} />
-
-        <div className="rounded-2xl bg-amber px-4 py-3 text-sm leading-relaxed text-amber-ink">{result.aha}</div>
-
-        <section>
-          <h2 className="font-medium">If the number is not the whole worry</h2>
-          <p className="mt-1 text-sm leading-relaxed text-muted">
-            These are not priced, and they do not talk you into a car. Each page says what the worry is protecting, what is dated, and what this check will not pretend.
-          </p>
-          <div className="mt-3 flex flex-col gap-2">
-            <button type="button" onClick={() => onFact("tenant-right")} className="min-h-12 rounded-2xl border border-line bg-card px-4 text-left text-sm font-medium">
-              The building might say no
-            </button>
-            <button type="button" onClick={() => onFact("winter")} className="min-h-12 rounded-2xl border border-line bg-card px-4 text-left text-sm font-medium">
-              Winter, and the long trip
-            </button>
-            <button type="button" onClick={() => onFact("not-for-me")} className="min-h-12 rounded-2xl border border-line bg-card px-4 text-left text-sm font-medium">
-              I simply do not want one
-            </button>
-          </div>
-        </section>
-        </Fold>
-
-        <Fold
-          id="evidence"
-          title="What went into the number"
-          line="Every figure with its tag and source, how it was decided, and the place."
-          open={folds.evidence}
-          onToggle={() => {
-            if (!folds.evidence) onAction("fold_evidence");
-            setFolds((f) => ({ ...f, evidence: !f.evidence }));
-          }}
-        >
         <section className="rounded-2xl border border-line bg-card">
           <h2 className="px-4 pt-4 font-medium">What went into the number</h2>
           <p className="px-4 pt-1 text-sm leading-relaxed text-muted">You means you tapped it. Default filled a gap and says so. Official is a dated public figure, not your bill. Model means a placeholder. A row with a control can be changed here, and the number updates.</p>
@@ -2025,34 +2104,9 @@ function ResultView({
           ) : null}
         </section>
 
-        </Fold>
-
-        <section id="plan" className="rounded-2xl border border-line bg-card p-4">
-          <h2 className="font-medium">Keep the plan</h2>
-          <p className="mt-2 text-sm leading-relaxed text-muted">
-            {sent === "sending"
-              ? "Updating the stored plan…"
-              : sent === "failed"
-                ? "Not stored. The plan below is still the current case."
-                : "Stored, as bands. It follows every change on this page. No name, no sentence."}
-          </p>
-          <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap [overflow-wrap:anywhere] rounded-2xl bg-sheet p-3 text-sm leading-relaxed">{planText(result)}</pre>
-          <div className="mt-4 flex flex-col gap-2">
-            {sent === "failed" ? (
-              <button type="button" onClick={onSend} className="h-12 rounded-full bg-spruce font-medium text-spruce-ink">
-                Try again
-              </button>
-            ) : null}
-            <button type="button" onClick={onDownload} className="flex h-12 items-center justify-center gap-2 rounded-full border border-line bg-sheet font-medium">
-              <Download className="h-4 w-4" />
-              Download the same record
-            </button>
-            <button type="button" onClick={onCopy} className="h-12 rounded-full border border-line bg-sheet font-medium">
-              {copied ? "Copied" : "Copy the plan as text"}
-            </button>
-          </div>
-        </section>
-
+              <div id="climate" className="scroll-mt-4">
+                <ClimateLine alreadyElectric={result.answers.fuel === "electric"} km={result.answers.km} />
+              </div>
         <section>
           <h2 className="font-medium">Did something not make sense?</h2>
           <p className="mt-1 text-sm leading-relaxed text-muted">
@@ -2099,6 +2153,50 @@ function ResultView({
             How the check works, every figure and what it leaves out
           </Link>
         </p>
+            </>
+          ) : null}
+        </ExploreTabs>
+
+        <button type="button" onClick={onEdit} className="rounded-2xl border border-line bg-card px-4 py-3 text-left">
+          <span className="block text-xs font-medium tracking-widest text-muted uppercase">This case</span>
+          <span className="mt-1 block text-sm">
+            {labelClass(result.iceClass)} · {labelFuel(result.answers.fuel ?? "petrol")} · {kmPhrase(result.answers.km, result.km, result.kmSource === "default" ? result.persona.title : undefined)} ·{" "}
+            {parkPhrase(result.answers.parking)}
+          </span>
+          <span className="mt-1 block text-sm font-medium text-spruce">Edit answers</span>
+        </button>
+
+        <div id="keep" className="flex flex-col gap-4">
+        <ShareNote result={result} onAction={onAction} />
+
+        <section id="plan" className="rounded-2xl border border-line bg-card p-4">
+          <h2 className="font-medium">Keep the plan</h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted">
+            {sent === "sending"
+              ? "Updating the stored plan…"
+              : sent === "failed"
+                ? "Not stored. The plan below is still the current case."
+                : "Stored, as bands. It follows every change on this page. No name, no sentence."}
+          </p>
+          <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap [overflow-wrap:anywhere] rounded-2xl bg-sheet p-3 text-sm leading-relaxed">{planText(result)}</pre>
+          <div className="mt-4 flex flex-col gap-2">
+            {sent === "failed" ? (
+              <button type="button" onClick={onSend} className="h-12 rounded-full bg-spruce font-medium text-spruce-ink">
+                Try again
+              </button>
+            ) : null}
+            <button type="button" onClick={onDownload} className="flex h-12 items-center justify-center gap-2 rounded-full border border-line bg-sheet font-medium">
+              <Download className="h-4 w-4" />
+              Download the same record
+            </button>
+            <button type="button" onClick={onCopy} className="h-12 rounded-full border border-line bg-sheet font-medium">
+              {copied ? "Copied" : "Copy the plan as text"}
+            </button>
+          </div>
+        </section>
+
+        </div>
+
         <p className="text-xs leading-relaxed text-muted">
           Indicative only. Not financial, insurance, tax, or purchase advice. Electricity, vehicle prices, tax, and rental days are labelled placeholders, not live Swiss tariffs or a dealer offer. The climate line is a published comparison of two new cars. It is not calculated for this case, and it does not change the payback. Winter range and data-security comparisons are not calculated here.
         </p>
@@ -2118,57 +2216,95 @@ function ResultView({
             setBarNote(how === "copied" ? "Copied. Paste it where you like." : how === "failed" ? "Could not share from here. Use “Ask someone else” below." : null);
           });
         }}
-        onChange={() => document.getElementById("levers")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-        onDetails={() => {
-          onAction("fold_why");
-          onAction("fold_evidence");
-          setFolds({ why: true, evidence: true });
-          window.setTimeout(() => document.getElementById("why")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
-        }}
+        onChange={() => openPanel("whatif", "explore")}
+        onDetails={() => openPanel("sources", "explore")}
       />
     </div>
   );
 }
 
-function ClimateLine({ alreadyElectric }: { alreadyElectric: boolean }) {
-  const src = SOURCES["foen-2023"];
+const PANELS: PanelDef[] = [
+  { id: "whatif", label: "What if" },
+  { id: "week", label: "My week" },
+  { id: "place", label: "My place" },
+  { id: "sources", label: "Sources" },
+];
+
+function downloadReminder() {
+  const url = window.location.hostname === "localhost" ? null : window.location.origin;
+  const blob = new Blob([revisitIcs(new Date(), 6, url)], { type: "text/calendar" });
+  const href = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = href;
+  a.download = "bev-navigator-reminder.ics";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(href);
+}
+
+function ClimateLine({ alreadyElectric, km }: { alreadyElectric: boolean; km: KmBand | null }) {
+  const src = SOURCES["bfe-2025"];
+  // The federal study's three zones on one yearly-distance scale. The person's own band is lit. No francs, no personal kilograms.
+  const MAX = 24000;
+  const zones = [
+    { from: 0, to: 4500, label: "Usually not worth it", fill: "bg-line" },
+    { from: 4500, to: 8000, label: "Depends on the car", fill: "bg-amber" },
+    { from: 8000, to: MAX, label: "Almost always worth it", fill: "bg-moss" },
+  ];
+  const band = km === "lt10" ? [0, 10000] : km === "mid" ? [10000, 20000] : km === "gt20" ? [20000, MAX] : null;
+  const pct = (n: number) => `${(n / MAX) * 100}%`;
+  const line =
+    km === "lt10"
+      ? "Your band crosses the line. Under about 4,000 to 5,000 km a year the study finds replacing usually is not justified. Above about 8,000 it almost always is. In between it depends on the two cars."
+      : km === "mid" || km === "gt20"
+        ? "At your distance the study finds replacing a combustion car with a new electric car almost always lowers greenhouse gases."
+        : "You were not sure of your distance, so no zone is lit. From about 8,000 km a year the study finds replacing almost always lowers greenhouse gases.";
   return (
     <section className="rounded-2xl border border-line bg-card p-4">
       <h2 className="font-medium">Climate, beside the money</h2>
-      <p className="mt-1 text-sm leading-relaxed text-muted">Greenhouse gases for two new mid-size cars, over the whole life. Not francs, and not your kilometres.</p>
-      <div className="mt-4 flex flex-col gap-2">
-        <p className="text-xs text-muted">Index · new petrol = 100 · not francs, not years</p>
-        <ClimateChart
-          domain={100}
-          ticks={[0, 50, 100]}
-          data={[
-            { name: "New petrol", value: 100, fill: "var(--color-muted)" },
-            { name: "New electric", value: 45, fill: "var(--color-spruce)" },
-          ]}
-        />
+      <p className="mt-1 text-sm leading-relaxed text-muted">A separate question from the francs. It never changes the payback. This is what the federal study found for a switch, by distance driven.</p>
+      <div className="mt-4" role="img" aria-label={`Yearly distance from 0 to 24,000 km. Under 4,500 usually not worth it for the climate, 4,500 to 8,000 depends on the car, over 8,000 almost always worth it.${band ? " Your distance band is marked." : ""}`}>
+        <div className="relative h-8 overflow-hidden rounded-full">
+          {zones.map((z) => (
+            <span key={z.label} className={`absolute top-0 h-8 ${z.fill}`} style={{ left: pct(z.from), width: pct(z.to - z.from) }} />
+          ))}
+          {band ? <span className="absolute top-1 h-6 rounded-full border-2 border-spruce bg-spruce/15" style={{ left: pct(band[0]), width: pct(band[1] - band[0]) }} /> : null}
+        </div>
+        <div className="relative mt-1 h-4 text-[11px] tabular-nums text-muted">
+          {[0, 8000, 16000, 24000].map((n) => (
+            <span key={n} className="absolute -translate-x-1/2" style={{ left: pct(n) }}>
+              {n === 0 ? "0" : `${n / 1000}k`}
+            </span>
+          ))}
+        </div>
+        <div className="mt-2 grid grid-cols-3 gap-2 text-xs leading-snug">
+          {zones.map((z) => (
+            <span key={z.label} className="flex items-start gap-1.5">
+              <span className={`mt-0.5 h-3 w-3 shrink-0 rounded-sm border border-line ${z.fill}`} aria-hidden />
+              {z.label}
+            </span>
+          ))}
+        </div>
       </div>
-      <p className="mt-2 text-xs leading-relaxed text-muted">
-        {alreadyElectric
-          ? "You already drive electric. This is still a new electric car against a new petrol car."
-          : "About 55 percent lower on the Swiss consumer mix. About 65 percent lower on renewable electricity. Keeping the car you own is not in the study, so it has no bar here."}
+      <p className="mt-3 text-sm leading-relaxed">{line}</p>
+      <ul className="mt-3 space-y-1.5 text-sm leading-relaxed text-muted">
+        <li>
+          <span className="font-medium text-ink">About 92 percent</span> of the car pairs the study compared save greenhouse gases when the combustion car is replaced by a new electric car of the same class.
+        </li>
+        <li>
+          The battery is about a fifth of an electric car&apos;s lifetime emissions. It is paid back by driving, which is why distance matters.
+        </li>
+        <li>
+          {alreadyElectric
+            ? "You already drive electric. The study's advice on size and green electricity still applies."
+            : "Replacing an older car saves as much per kilometre as replacing a newer one. The older one just has fewer kilometres left."}
+        </li>
+      </ul>
+      <p className="mt-3 text-xs leading-relaxed text-muted">
+        The study counts a 16-year life and 200,000 km, so the climate picture is longer than the 8-year window used for the money. It uses the Swiss consumer electricity mix. Green electricity does better. It does not cover the car you keep.
       </p>
-      <div className="mt-4 flex flex-col gap-2 border-t border-line pt-4">
-        <p className="text-xs text-muted">Same study, a trip of 5 km. Public transport = 1. Not the index above.</p>
-        <ClimateChart
-          domain={12}
-          ticks={[0, 6, 12]}
-          height={168}
-          data={[
-            { name: "Mid-size petrol", value: 12, fill: "var(--color-muted)" },
-            { name: "Battery electric", value: 6, fill: "var(--color-spruce)" },
-            { name: "Public transport", value: 1, fill: "var(--color-ink)" },
-          ]}
-        />
-        <p className="text-xs leading-relaxed text-muted">
-          A bicycle is lower still. In that comparison the petrol car is about 26 times a bicycle, and the electric car about 12 times. A bar that short would not show.
-        </p>
-      </div>
-      <a className="mt-2 inline-block text-sm font-medium text-spruce underline" href={src.url} target="_blank" rel="noopener noreferrer">
+      <a className="mt-2 inline-block min-h-11 py-2 text-sm font-medium text-spruce underline" href={src.url} target="_blank" rel="noopener noreferrer">
         {src.title}, {src.published}
       </a>
     </section>
@@ -2612,16 +2748,7 @@ function ShareNote({ result, onAction }: { result: Result; onAction: (action: Ac
           type="button"
           onClick={() => {
             onAction("reminder");
-            const url = window.location.hostname === "localhost" ? null : window.location.origin;
-            const blob = new Blob([revisitIcs(new Date(), 6, url)], { type: "text/calendar" });
-            const href = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = href;
-            a.download = "bev-navigator-reminder.ics";
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            URL.revokeObjectURL(href);
+            downloadReminder();
           }}
           className="flex min-h-12 items-center rounded-2xl border border-line bg-card px-4 text-left text-sm font-medium"
         >
@@ -2961,11 +3088,11 @@ const FOLLOW: Record<FactKey, { prompt: string; chips: { label: string; detail?:
     chips: [{ label: "No. Leave the feeling as a choice", patch: { worry: "refuse" } }],
   },
   "canton-tax": {
-    prompt: "There is no canton question on the main path. Naming one would not make this number a tax assessment.",
+    prompt: "Open “My place” on the result to pick a canton or add a postcode. It changes the tax line and the home price, and it is still not a tax assessment.",
     chips: [],
   },
   "local-grant": {
-    prompt: "There is no town question. A commune is close to an address, and a grant that might already be used up would still not belong in this sum.",
+    prompt: "Open “My place” on the result and add a postcode to get your commune's page. A grant that might already be used up still would not belong in this sum.",
     chips: [],
   },
 };
@@ -3000,12 +3127,16 @@ function FactSheet({
         </button>
         <p className="mt-4 text-sm leading-snug text-muted">{view.kicker}</p>
         <h1 className="font-serif mt-2 text-3xl leading-tight">{fact.title}</h1>
+        {view.diagram === "year-days" ? <YearDays /> : null}
+        {view.diagram === "battery-age" ? <BatteryAge /> : null}
         {view.figure ? (
           <div className="mt-5 rounded-2xl border border-line bg-card p-4">
             <p className="font-serif text-5xl tabular-nums leading-none">{view.figure.value}</p>
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-line" role="img" aria-label={view.figure.caption}>
-              <div className="h-full rounded-full bg-spruce" style={{ width: `${Math.round(view.figure.fill * 100)}%` }} />
-            </div>
+            {view.figure.fill != null ? (
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-line" role="img" aria-label={view.figure.caption}>
+                <div className="h-full rounded-full bg-spruce" style={{ width: `${Math.round(view.figure.fill * 100)}%` }} />
+              </div>
+            ) : null}
             <p className="mt-2 text-sm leading-relaxed text-muted">{view.figure.caption}</p>
           </div>
         ) : null}
@@ -3075,14 +3206,24 @@ function FactSheet({
             );
           })}
         </ul>
+        {view.links?.length ? (
+          <ul className="mt-4 flex flex-col gap-2">
+            {view.links.map((l) => (
+              <li key={l.href}>
+                <a className="block rounded-2xl border border-line bg-card px-4 py-3" href={l.href} target="_blank" rel="noopener noreferrer">
+                  <span className="block text-sm font-medium text-spruce underline underline-offset-2">{l.name}</span>
+                  <span className="mt-0.5 block text-sm leading-snug text-muted">{l.note}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : null}
         <p className="mt-4 text-sm leading-relaxed text-muted">{fact.source}</p>
-        {fact.url ? (
-          <a className="mt-1 inline-block text-sm font-medium text-spruce underline" href={fact.url} target="_blank" rel="noopener noreferrer">
+        {fact.url && !view.links?.some((l) => l.href === fact.url) ? (
+          <a className="mt-1 inline-block min-h-11 py-2 text-sm font-medium text-spruce underline" href={fact.url} target="_blank" rel="noopener noreferrer">
             {fact.linkName ?? fact.title}
           </a>
-        ) : (
-          <p className="mt-1 text-sm text-muted">No separate public page for this note.</p>
-        )}
+        ) : null}
         <p className="mt-1 text-sm text-muted">Checked {when}.</p>
         <section className="mt-6">
           {follow.chips.length > 0 ? (

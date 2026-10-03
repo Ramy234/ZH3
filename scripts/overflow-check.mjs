@@ -20,15 +20,40 @@ for (const width of [360, 390, 1280]) {
     if (wide > 0) failed = true;
   };
   await check("start");
+  // The idea sheets open from the start page. Each has a picture that reacts to a tap.
+  for (const [open, label] of [[/A smaller car, and a bigger one only/, "2:1"], [/A used car's battery, checked by its age/, "battery"], [/Charging in a shared garage without/, "charger"]]) {
+    await page.getByRole("button", { name: open }).first().click();
+    await page.waitForTimeout(400);
+    const tap = page.getByRole("button", { name: /About 8 days|Over 5 years old/ }).first();
+    if (await tap.count()) await tap.click();
+    await check(`idea sheet ${label}`);
+    await page.getByRole("button", { name: "Back" }).first().click();
+    await page.waitForTimeout(300);
+  }
   for (const [i, re] of taps.entries()) {
     await page.getByRole("button", { name: re }).first().click();
     await page.waitForTimeout(450);
     await check(i === taps.length - 1 ? "result" : `after tap ${i + 1}`);
   }
-  for (const name of [/Why this result/, /What went into the number/]) {
-    await page.getByRole("button", { name }).first().click();
+  // The result page has four panels, one open at a time. Walk all of them, then the sliders and the extra levers.
+  for (const name of [/^My week$/, /^My place$/, /^Sources$/, /^What if$/]) {
+    await page.getByRole("tab", { name }).first().click();
     await page.waitForTimeout(300);
-    await check(`fold ${String(name)}`);
+    await check(`panel ${String(name)}`);
+  }
+  const slider = page.getByRole("slider").first();
+  if (await slider.count()) {
+    await slider.focus();
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowRight");
+    await page.waitForTimeout(300);
+    await check("after moving a slider");
+  }
+  const more = page.getByText(/Switches, what you use the car for/).first();
+  if (await more.count()) {
+    await more.click();
+    await page.waitForTimeout(300);
+    await check("more levers open");
   }
 }
 await browser.close();

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { EMPTY, PUMP, RATES, SAMPLE, SPECS, evaluate, suggestToggles } from "./model.ts";
-import { CAP_YEARS, sensitivity } from "./sensitivity.ts";
+import { CAP_YEARS, moveAt, scenario, sensitivity } from "./sensitivity.ts";
 import type { Answers } from "./model.ts";
 
 const A = (over: Partial<Answers>): Answers => ({ ...EMPTY, ...over });
@@ -40,4 +40,18 @@ test("sensitivity: with an ElCom home figure picked, the home price is the one t
   assert.match(home.better.input, /^15 rappen/);
   assert.match(home.worse.input, /^25 rappen/);
   assert.equal(RATES.home, 0.265);
+});
+
+test("sliders: the ends are the tornado's ends, the middle is the case as it is, and nothing is kept", () => {
+  const base = result(SAMPLE);
+  const s = sensitivity(base)!;
+  const pump = s.drivers.find((d) => d.id === "pump")!;
+  const ends = [pump.better.input, pump.worse.input];
+  assert.ok(ends.includes(moveAt(base, "pump", -1).input));
+  assert.ok(ends.includes(moveAt(base, "pump", 1).input));
+  assert.equal(scenario(base, { pump: 0 }), null);
+  const cheap = scenario(base, { pump: -1 })!;
+  const dear = scenario(base, { pump: 1 })!;
+  assert.ok(cheap.saving < base.saving && dear.saving > base.saving);
+  assert.equal(result(SAMPLE).saving, base.saving);
 });

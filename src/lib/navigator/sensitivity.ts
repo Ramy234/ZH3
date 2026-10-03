@@ -47,51 +47,124 @@ function kmNeighbours(band: KmBand | null): { low: KmBand; high: KmBand } {
   return { low: "lt10", high: "gt20" };
 }
 
-/** The moves for each driver, low and high. Returns [] for a driver that does not apply to this case. */
-function moves(r: Result): Record<Driver["id"], Record<Pick, Move> | null> {
+type Applies = Move & { applies: boolean };
+const NONE: Applies = { overrides: [], input: "", applies: false };
+
+/**
+ * One assumption moved to a point on its own scale: t = -1 is the low end, 0 is as it is, +1 is the high end.
+ * The low and high ends are exactly the ones the tornado used. The slider on the result page uses the points between.
+ * Distance is one of three bands, so it only has the two ends and "as it is".
+ */
+export function moveAt(r: Result, id: Driver["id"], t: number): Applies {
   const a = r.answers;
+  const k = Math.max(-1, Math.min(1, t));
+  const f = (span: number) => 1 + span * k;
+  const scale = (key: string, base: number, factor: number) => ({ key, value: base * factor });
   const fuel = a.fuel ?? "petrol";
-  const scale = (key: string, base: number, f: number) => ({ key, value: base * f });
-  const pump = (f: number) => [scale("pump.petrol", PUMP.petrol, f), scale("pump.diesel", PUMP.diesel, f), scale("pump.hybrid", PUMP.hybrid, f)];
-  const priceKey = r.toggles.used ? "bevUsed" : "bevNew";
-  const bevPrice = SPECS[r.bevClass][priceKey];
-  const resale = SPECS[r.iceClass].resale;
-  const home = r.official ? r.official.homeChf : RATES.home;
-  const km = kmNeighbours(a.km);
-  return {
-    pump: fuel === "electric" ? null : {
-      low: { overrides: pump(0.85), input: `${(PUMP[fuel === "diesel" ? "diesel" : "petrol"] * 0.85).toFixed(2)} francs a litre` },
-      high: { overrides: pump(1.15), input: `${(PUMP[fuel === "diesel" ? "diesel" : "petrol"] * 1.15).toFixed(2)} francs a litre` },
-    },
-    home: {
-      low: { overrides: r.official ? [] : [scale("rate.home", RATES.home, 0.75)], homeScale: r.official ? 0.75 : undefined, input: `${Math.round(home * 75)} rappen a kWh at home` },
-      high: { overrides: r.official ? [] : [scale("rate.home", RATES.home, 1.25)], homeScale: r.official ? 1.25 : undefined, input: `${Math.round(home * 125)} rappen a kWh at home` },
-    },
-    public: {
-      low: { overrides: [scale("rate.public", RATES.public, 0.75), scale("rate.publicPlan", RATES.publicPlan, 0.75)], input: `${Math.round(RATES.public * 75)} rappen a kWh on the road` },
-      high: { overrides: [scale("rate.public", RATES.public, 1.25), scale("rate.publicPlan", RATES.publicPlan, 1.25)], input: `${Math.round(RATES.public * 125)} rappen a kWh on the road` },
-    },
-    km: r.alreadyElectric ? null : {
-      low: { overrides: [], answers: { km: km.low }, input: KM_TEXT[km.low] },
-      high: { overrides: [], answers: { km: km.high }, input: KM_TEXT[km.high] },
-    },
-    price: r.alreadyElectric ? null : {
-      low: { overrides: [scale(`spec.${r.bevClass}.${priceKey}`, bevPrice, 0.9)], input: `${chf(bevPrice * 0.9)} for the electric car` },
-      high: { overrides: [scale(`spec.${r.bevClass}.${priceKey}`, bevPrice, 1.1)], input: `${chf(bevPrice * 1.1)} for the electric car` },
-    },
-    resale: r.alreadyElectric ? null : {
-      low: { overrides: [scale(`spec.${r.iceClass}.resale`, resale, 0.75)], input: `${chf(resale * 0.75)} for the car you have` },
-      high: { overrides: [scale(`spec.${r.iceClass}.resale`, resale, 1.25)], input: `${chf(resale * 1.25)} for the car you have` },
-    },
-  };
+  switch (id) {
+    case "pump": {
+      if (fuel === "electric") return NONE;
+      const g = f(0.15);
+      const one = PUMP[fuel === "diesel" ? "diesel" : "petrol"];
+      return {
+        overrides: [scale("pump.petrol", PUMP.petrol, g), scale("pump.diesel", PUMP.diesel, g), scale("pump.hybrid", PUMP.hybrid, g)],
+        input: `${(one * g).toFixed(2)} francs a litre`,
+        applies: true,
+      };
+    }
+    case "home": {
+      const g = f(0.25);
+      const home = r.official ? r.official.homeChf : RATES.home;
+      return {
+        overrides: r.official ? [] : [scale("rate.home", RATES.home, g)],
+        homeScale: r.official ? g : undefined,
+        input: `${Math.round(home * g * 100)} rappen a kWh at home`,
+        applies: true,
+      };
+    }
+    case "public": {
+      const g = f(0.25);
+      return {
+        overrides: [scale("rate.public", RATES.public, g), scale("rate.publicPlan", RATES.publicPlan, g)],
+        input: `${Math.round(RATES.public * g * 100)} rappen a kWh on the road`,
+        applies: true,
+      };
+    }
+    case "km": {
+      if (r.alreadyElectric) return NONE;
+      const n = kmNeighbours(a.km);
+      const moved = k <= -0.5 || k >= 0.5;
+      const band = k <= -0.5 ? n.low : k >= 0.5 ? n.high : (a.km ?? "unsure");
+      return { overrides: [], answers: moved ? { km: band } : {}, input: KM_TEXT[band], applies: true };
+    }
+    case "price": {
+      if (r.alreadyElectric) return NONE;
+      const priceKey = r.toggles.used ? "bevUsed" : "bevNew";
+      const bevPrice = SPECS[r.bevClass][priceKey];
+      const g = f(0.1);
+      return { overrides: [scale(`spec.${r.bevClass}.${priceKey}`, bevPrice, g)], input: `${chf(bevPrice * g)} for the electric car`, applies: true };
+    }
+    case "resale": {
+      if (r.alreadyElectric) return NONE;
+      const resale = SPECS[r.iceClass].resale;
+      const g = f(0.25);
+      return { overrides: [scale(`spec.${r.iceClass}.resale`, resale, g)], input: `${chf(resale * g)} for the car you have`, applies: true };
+    }
+  }
 }
 
-function run(r: Result, picked: Move[]): Outcome {
+const DRIVER_IDS: Driver["id"][] = ["pump", "home", "public", "km", "price", "resale"];
+
+/** The moves for each driver, low and high. null for a driver that does not apply to this case. */
+function moves(r: Result): Record<Driver["id"], Record<Pick, Move> | null> {
+  const out = {} as Record<Driver["id"], Record<Pick, Move> | null>;
+  for (const id of DRIVER_IDS) {
+    const lo = moveAt(r, id, -1);
+    const hi = moveAt(r, id, 1);
+    out[id] = lo.applies && hi.applies ? { low: lo, high: hi } : null;
+  }
+  return out;
+}
+
+function runResult(r: Result, picked: Move[]): Result {
   const overrides = picked.flatMap((m) => m.overrides);
   const answers = picked.reduce<Answers>((acc, m) => ({ ...acc, ...(m.answers ?? {}) }), r.answers);
   const homeScale = picked.reduce((acc, m) => acc * (m.homeScale ?? 1), 1);
   const official = r.official ? { ...r.official, homeChf: r.official.homeChf * homeScale } : null;
-  return withDataset(overrides, () => outcome(evaluate(answers, r.toggles, official, r.canton)));
+  return withDataset(overrides, () => evaluate(answers, r.toggles, official, r.canton));
+}
+
+function run(r: Result, picked: Move[]): Outcome {
+  return outcome(runResult(r, picked));
+}
+
+/**
+ * What the case looks like with some assumptions moved on the sliders. Returns a full Result, so the page can draw the
+ * changed line and the changed numbers next to the real ones. It never replaces the real result and never stores anything.
+ */
+export function scenario(r: Result, picks: Partial<Record<Driver["id"], number>>): Result | null {
+  if (r.alreadyElectric) return null;
+  const picked: Move[] = [];
+  for (const id of DRIVER_IDS) {
+    const t = picks[id];
+    if (t == null || t === 0) continue;
+    const m = moveAt(r, id, t);
+    if (m.applies) picked.push(m);
+  }
+  if (picked.length === 0) return null;
+  return runResult(r, picked);
+}
+
+/** The assumptions a slider can move for this case, in the tornado's order, with the end points and the current point in words. */
+export function sliderDrivers(r: Result, sens: Sensitivity | null): { id: Driver["id"]; label: string; low: string; high: string; now: string }[] {
+  if (!sens) return [];
+  return sens.drivers.map((d) => ({
+    id: d.id,
+    label: d.label,
+    low: moveAt(r, d.id, -1).input,
+    high: moveAt(r, d.id, 1).input,
+    now: moveAt(r, d.id, 0).input,
+  }));
 }
 
 const LABEL: Record<Driver["id"], { label: string; moved: string }> = {

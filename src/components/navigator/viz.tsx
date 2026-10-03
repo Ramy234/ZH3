@@ -51,12 +51,15 @@ export function PaybackRuler({
   worst,
   frame,
   tone = "light",
+  scenario = null,
 }: {
   base: Outcome;
   best: Outcome | null;
   worst: Outcome | null;
   frame: number;
   tone?: "light" | "dark";
+  /** The case with the sliders moved. Drawn as a diamond next to the real result, never in place of it. */
+  scenario?: Outcome | null;
 }) {
   const max = axisMax(frame, worst);
   const dark = tone === "dark";
@@ -65,7 +68,8 @@ export function PaybackRuler({
   const label =
     `Payback ruler. Most likely ${paybackWord(base)}.` +
     (best && worst ? ` Between ${paybackWord(best)} and ${paybackWord(worst)} when the assumptions move together.` : "") +
-    ` The federal study looks 8 years ahead.`;
+    (scenario ? ` With your changes: ${paybackWord(scenario)}.` : "") +
+    ` The reference window is 8 years, from a federal study.`;
   const line = dark ? "bg-white/25" : "bg-line";
   const text = dark ? "text-white/70" : "text-muted";
   return (
@@ -83,13 +87,20 @@ export function PaybackRuler({
         {frame !== 8 ? (
           <span className={`absolute top-4 h-7 w-px ${dark ? "bg-white/70" : "bg-ink"}`} style={{ left: pos(frame, max) }} aria-hidden />
         ) : null}
+        {scenario ? (
+          <span
+            className={`absolute top-[1.3rem] h-3.5 w-3.5 -translate-x-1/2 rotate-45 border-2 ${dark ? "border-white bg-volt" : "border-ink bg-volt"}`}
+            style={{ left: pos(scenario.payback == null ? max : Math.min(max, scenario.payback), max) }}
+            aria-hidden
+          />
+        ) : null}
         <span
           className={`absolute top-[1.2rem] h-[1.1rem] w-[1.1rem] -translate-x-1/2 rounded-full border-[3px] ${dark ? "border-volt bg-spruce" : "border-spruce bg-card"}`}
           style={{ left: pos(baseAt, max) }}
           aria-hidden
         />
-        <div className={`absolute top-0 left-0 text-[11px] leading-none ${text}`} style={{ width: pos(8, max) }}>
-          <span className="block truncate">Study: 8 years</span>
+        <div className={`absolute top-0 left-0 text-[11px] leading-none ${text}`}>
+          <span className="block whitespace-nowrap">{frame === 8 ? "Reference: 8 years" : "8 yr ref."}</span>
         </div>
         {frame !== 8 ? (
           <div className={`absolute top-0 -translate-x-1/2 text-[11px] leading-none whitespace-nowrap ${text}`} style={{ left: pos(frame, max) }}>

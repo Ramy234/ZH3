@@ -25,24 +25,26 @@ export const FACTS: Record<FactKey, Fact> = {
   "two-for-one": {
     key: "two-for-one",
     title: "A smaller car, and a bigger one when you need it",
-    body: "Most trips are ordinary. The 2:1 idea sizes the car you own for those, and books a larger vehicle for the rest. A dealer pool can do that — a Renault agency is one example discussed for this project — but only if the class, price, kilometres, insurance, permission to travel, and a fallback car are in writing. Car sharing or a normal rental does the same job. This is not an offer.",
-    source: "Project concept, October 2026. Not a dealer price.",
-    as_of: "2026-10-02",
+    body: "Most trips are ordinary. The 2:1 idea sizes the car you own for those, and books a larger vehicle for the rest. A dealer pool can do that. A Renault agency was discussed for this project, and no public offer was found, so it is an idea and not a product. It only works if the class, price, kilometres, insurance, permission to travel, and a fallback car are in writing. Car sharing or a normal rental does the same job. This is not an offer.",
+    source: "Project idea, discussed with a Renault agency in October 2026. No public offer was found. Not a dealer price.",
+    as_of: "2026-10-03",
     status: "concept",
   },
   "mobile-charger": {
     key: "mobile-charger",
     title: "Charging without rebuilding the garage",
-    body: "Some multi-unit buildings look at a mobile DC charger on an existing power line, instead of a new supply in the underground garage. Designwerk is one manufacturer in that category. Whether it is allowed depends on that building’s connection and the other owners. It is not a general right, and it is not in the year cost until there is a quote.",
-    source: "Project meeting note. Not confirmed with the manufacturer.",
-    as_of: "2026-10-02",
+    body: "Some multi-unit buildings look at a mobile DC charger on an existing power line, instead of a new supply in the underground garage. Designwerk, in Winterthur, makes a 22 kW mobile DC charger that plugs into a 3-phase 32 A socket. The maker lists garages, dealerships and fleets as its use, so whether it fits a residential garage is a question for the building. Whether it is allowed depends on that building’s connection and the other owners. It is not a general right, and it is not in the year cost until there is a quote.",
+    source: "Designwerk product page for the maker's own description. Project meeting note for the idea. Not confirmed for a residential garage.",
+    url: "https://www.designwerk.com/en/mobile-charger-22-920/",
+    linkName: "Designwerk: mobile DC charger 22 kW (maker's page)",
+    as_of: "2026-10-03",
     status: "unverified",
   },
   battery: {
     key: "battery",
     title: "A used electric car is a number, or it is a guess",
-    body: "A battery-health certificate should show the date, the kilometres, the method and the result. It does not replace a full inspection of brakes, charging hardware and history. Ask what a centre such as TCS actually tests before you treat a listing as safe.",
-    source: "TCS, 27 November 2025, about 130 used electric cars. Not a test price in this check.",
+    body: "A battery-health certificate should show the date, the kilometres, the method and the result. How much it matters depends on the car's age and kilometres: in the TCS sample, young low-mileage cars were almost all above 90 percent, older ones varied a lot. Since June 2026 Aviloo adds a free battery warranty to a qualifying test. A certificate does not replace a full inspection of brakes, charging hardware and history.",
+    source: "TCS, 27 November 2025, about 130 used electric cars. Aviloo warranty, reported by electrive on 16 June and 8 September 2026. Not a test price in this check.",
     url: "https://www.tcs.ch/de/der-tcs/presse/medienmitteilungen-2025/e-occasionen-im-test.php",
     linkName: "TCS: used-car batteries, 27 November 2025",
     as_of: "2026-10-02",
@@ -93,7 +95,7 @@ export const FACTS: Record<FactKey, Fact> = {
   "canton-tax": {
     key: "canton-tax",
     title: "The tax in this check is not your canton",
-    body: "Cantons do not tax a car the same way. A TCS comparison from February 2026, still the reference used in 2026 roundups, put one electric car at 0 francs a year in Glarus, Solothurn and Zurich, and at 921 francs in Fribourg. A smaller electric car in the same comparison paid much less. Geneva’s electric exemption has ended. Glarus decided on 3 May 2026 that electric cars pay from 1 January 2027, with 25 percent off until 2030. Solothurn’s parliament decided on 6 May 2026 to tax them by weight. Without a canton this check uses one illustrative tax per car class. If you pick a canton on the result, the tax line uses the February 2026 table for the nearest published car. It is not your registration.",
+    body: "Cantons do not tax a car the same way. A TCS comparison from February 2026, still the reference used in 2026 roundups, put one electric car at 0 francs a year in Glarus, Solothurn and Zurich, and at 921 francs in Fribourg. A smaller electric car in the same comparison paid much less. Geneva’s electric exemption has ended. Glarus decided on 3 May 2026 that electric cars pay from 1 January 2027, with 25 percent off until 2030. Solothurn’s parliament decided on 6 May 2026 to tax them by weight. Without a canton this check uses one illustrative tax per car class. If you pick a canton or add a postcode in My place, the tax line uses the February 2026 table for the nearest published car. It is not your registration.",
     source: "TCS vehicle-tax comparison, February 2026. Not this model, and not a tax assessment.",
     url: "https://www.tcs.ch/de/testberichte-ratgeber/ratgeber/umwelt-mobilitaet/motorfahrzeugsteuer.php",
     linkName: "TCS vehicle-tax comparison, February 2026",
@@ -103,7 +105,7 @@ export const FACTS: Record<FactKey, Fact> = {
   "local-grant": {
     key: "local-grant",
     title: "No commune grant is in this sum",
-    body: "Switzerland pays no federal cheque for buying an electric car. Lists of cantonal purchase grants disagree. A Motoro roundup updated on 10 September 2026, using the TCS tax comparison, names Ticino as the only canton with a purchase premium: 4,000 francs for a new electric car, with conditions, until a credit of 11 million francs runs out. Other write-ups also name Basel-Stadt and Vaud. This check does not pick a winner and does not subtract any of them. Communes and local utilities sometimes add their own amount. Those programmes are small, capped, and they expire. A solar roof is a different investment: a federal one-off payment after the system is running, plus cantonal amounts, none of which is taken off the price of the car. The solar switch in this check only cheapens an illustrative share of home charging. It is not a roof. Naming a commune would be close to naming an address, and it would still not make the grant a promise.",
+    body: "Switzerland pays no federal cheque for buying an electric car. Lists of cantonal purchase grants disagree. A Motoro roundup updated on 10 September 2026, using the TCS tax comparison, names Ticino as the only canton with a purchase premium: 4,000 francs for a new electric car, with conditions, until a credit of 11 million francs runs out. Other write-ups also name Basel-Stadt and Vaud. This check does not pick a winner and does not subtract any of them. Communes and local utilities sometimes add their own amount. Those programmes are small, capped, and they expire. A solar roof is a different investment: a federal one-off payment after the system is running, plus cantonal amounts, none of which is taken off the price of the car. The solar switch in this check only cheapens an illustrative share of home charging. It is not a roof. A postcode added in My place leads to the commune's own page, and a grant is still not a promise.",
     source: "Motoro canton roundup, updated 10 September 2026, for the Ticino premium and the disagreement with other lists. Pronovo pays the federal solar one-off. Not this model.",
     as_of: "2026-10-02",
     status: "dated",
@@ -112,35 +114,52 @@ export const FACTS: Record<FactKey, Fact> = {
 
 export type FactView = {
   kicker: string;
-  figure?: { value: string; caption: string; fill: number };
+  /** A picture that reacts to taps on the sheet itself. */
+  diagram?: "year-days" | "battery-age";
+  /** Named, linked sources and examples. A manufacturer or a test provider is named as what it is. */
+  links?: { name: string; href: string; note: string }[];
+  figure?: { value: string; caption: string; fill?: number };
   compare?: { left: { value: string; label: string; amount: number }; right: { value: string; label: string; amount: number }; caption: string };
   lines: { label: string; text: string; more?: { label: string; text: string }[]; link?: { name: string; href: string } }[];
 };
 
 export const FACT_VIEW: Record<FactKey, FactView> = {
   "two-for-one": {
-    kicker: "An idea. Not an offer.",
+    kicker: "An idea worth knowing. Not an offer.",
+    diagram: "year-days",
     lines: [
-      { label: "The idea", text: "Own the car for ordinary days. Book a larger one for the days it cannot do." },
+      { label: "The idea", text: "Own the car for ordinary days. Book a larger one for the few days it cannot do." },
       { label: "In writing, or it is not a plan", text: "Class, price, kilometres, insurance, permission to travel, and a fallback car." },
-      { label: "Who can do it", text: "A dealer pool is one example. So is car sharing, or a normal rental. A Renault agency was discussed for this project. It is not a quote." },
+      { label: "Who could offer it", text: "A dealer pool is one example. A Renault agency was discussed for this project, and no public offer was found. Car sharing and an ordinary rental do the same job today." },
+      { label: "In this check", text: "The switch “One class down” prices it: a smaller car, and the exceptional days booked as rental at an illustrative day rate." },
+    ],
+    links: [
+      { name: "The Mobility car-sharing network", href: "https://www.mobility.ch/", note: "A Swiss car-sharing cooperative: one example of booking a larger car by the hour or day. An example, not a recommendation, and not a quote." },
     ],
   },
   "mobile-charger": {
-    kicker: "Not confirmed. Not in the year cost.",
+    kicker: "An idea worth knowing. Not confirmed for a home. Not in the year cost.",
+    figure: {
+      value: "22 kW",
+      caption: "What one maker lists: a mobile DC charger from Designwerk (Winterthur) that plugs into a 3-phase 400 V, 32 A socket. The maker names garages, dealerships and fleets as its use. Price not published on the page.",
+    },
     lines: [
-      { label: "The idea", text: "A mobile charger on the building’s existing power line, instead of rebuilding the garage." },
-      { label: "The limit", text: "It depends on that building’s connection and the other owners. Designwerk is one manufacturer, not an offer." },
-      { label: "This check", text: "It stays out of the francs until there is a quote." },
+      { label: "The idea", text: "A charger that comes to the car and plugs into the building's existing power line, instead of rebuilding the garage." },
+      { label: "The limit", text: "It needs that kind of socket nearby, and it depends on the building's connection and the other owners. A residential garage is not the use the maker lists, so ask both the maker and the building." },
+      { label: "This check", text: "It stays out of the francs until there is a quote for your building." },
+    ],
+    links: [
+      { name: "Designwerk: mobile DC charger 22 kW", href: "https://www.designwerk.com/en/mobile-charger-22-920/", note: "The maker's own page. A manufacturer, so not a neutral source." },
+      { name: "Charging in a rented building, EnergieSchweiz", href: "https://www.energieschweiz.ch/ladeinfrastruktur/werkzeuge/ladeinfrastruktur-in-mietobjekten/", note: "Neutral federal guidance on asking a landlord or owners." },
     ],
   },
   battery: {
-    kicker: "A dated test. Not a price in this sum.",
-    figure: {
-      value: "87%",
-      fill: 0.87,
-      caption: "Of the younger, lower-mileage cars in a TCS sample had more than 90 percent of the original battery capacity. About 130 cars, January to September 2025, at TCS centres in Zurich, Bern, Biel and Vaud. Not every used car, and not the one in an advert.",
-    },
+    kicker: "A dated test, and a new free warranty. Not a price in this sum.",
+    diagram: "battery-age",
+    links: [
+      { name: "Aviloo: battery warranty for used electric cars", href: "https://electrive.com/2026/09/08/aviloo-expands-battery-warranty-to-26-countries", note: "New since June 2026, Switzerland included by September 2026. Free with a qualifying Aviloo Flash Test: EUR 3,000 if the battery falls below its calculated limit, for one year or 20,000 km. Aviloo sells the test, so read its terms before you rely on it." },
+      { name: "TCS: batteries of used electric cars, 27 November 2025", href: "https://www.tcs.ch/de/der-tcs/presse/medienmitteilungen-2025/e-occasionen-im-test.php", note: "About 130 cars, January to September 2025, measured with Aviloo equipment." },
+    ],
     lines: [
       {
         label: "A certificate should show",
