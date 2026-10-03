@@ -61,3 +61,17 @@
 - **Time horizon.** The 8-year window stays the one reference (the March 2023 EnergieSchweiz study; the newest EnergieSchweiz total-cost study found). It is now labelled "Reference: 8 years". The climate view says it uses 16 years.
 - **Idea sheets are pictures first and name names.** 2:1 shows a year of 365 days with the bigger-car days lit. The battery sheet is sorted by the car's age and kilometres from the TCS test (87 percent above 90 for young low-mileage cars; 6 of 17 older low-mileage cars near 90 or higher; nearly half of the older high-mileage cars; every end-of-life battery was a first-generation car over eight years old) and shows the free Aviloo battery warranty (since June 2026, Switzerland by September 2026, EUR 3,000, one year or 20,000 km, with a qualifying test). The mobile-charger sheet names Designwerk with its 22 kW charger and links the maker's page, labelled as a manufacturer. 2:1 names the Renault agency as discussed, with "no public offer was found". Martin: named, novel ideas are shown and linked. Migration 0019 rewrites the five fact rows. The sheets that said "we never ask for a place" now point to My place.
 - **Front page.** "Ideas worth knowing" cards (2:1, battery, charger) and a labelled "Start from a typical case" door.
+
+## 3 Oct 2026, Zurich Research folder
+- Read the whole folder and wrote `docs/ZURICH-RESEARCH-PLAN.md`. Plan only, no code or data changed. Open decisions D1 to D5 are at the end of that file.
+
+## 3 Oct 2026 (late): Zurich plan built and shipped
+
+- **Gap codes.** Each final session stores `gapCodes` derived from closed answers (`gapcodes.ts`): the 26 INFRAS sub-barriers (INFRAS for AWEL Zurich, 1 Jul 2026) plus our own X1 for connected-car data. Views `bev_gap_sessions`, `bev_gap_backlog`, `bev_action_stats` show cells of at least 5 internally; anything outside the team uses `PUBLIC_MIN_CELL` 10. The session id is pseudonymous, not anonymous, and the method page says so.
+- **Charging check.** Three optional taps on My place. It changes the next move, never the francs. Stored as `chargeSetup`.
+- **Watch rows.** `bev_watch` holds rules that are not law yet (tenants' right to a base installation, the 2030 levy). No date of entry into force is ever shown.
+- **Provider links (Martin's override of the neutral-only rule).** Provider links, Z-Volt included, may appear as information in labelled lists. They are never the next move, never first, never next to a price, and never called neutral. CLAUDE.md amended.
+- **2:1 naming.** Stays "discussed" until Christian Zeunert (Zurich) confirms.
+- **`trial-routes` retired.** The EnergieSchweiz page now redirects to the hub, so the action is `retired`, not `draft`. Only `live` actions are ever shown.
+- **Deploy branch finding.** The last overhaul commits were only on `step-3-n8n-workflows`; the Vercel branch `claude/handover-step-0-t24lvd` was behind. This push moves it forward. Vercel runs `db:migrate` at build, so migrations 0017 to 0020 apply automatically.
+- **Petrol default (open, no change made).** The model uses 2.14 CHF/litre, a TCS spot price of 19 Sep 2026 that the row's own note calls near this year's high (about 1.77 in late February; an earlier reference of 1.71 was also seen). A high petrol price makes keeping the car look dearer, so it leans toward switching, against the neutral aim. Recommendation: move to the BFS monthly average once W3 is wired, and bump MODEL and DATASET at the same time. Not changed here because it moves every franc figure.

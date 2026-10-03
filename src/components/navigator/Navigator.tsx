@@ -27,9 +27,14 @@ import {
 } from "lucide-react";
 import { BatteryProgress, CostBars, PaybackRuler } from "@/components/navigator/viz";
 import { paybackWord, scenario as runScenario, sensitivity } from "@/lib/navigator/sensitivity";
-import { ExploreTabs, NextMove, WhatIf, type PanelDef } from "@/components/navigator/result-parts";
+import { ExploreTabs, Glossary, NextMove, WhatIf, type PanelDef } from "@/components/navigator/result-parts";
 import { BatteryAge, YearDays } from "@/components/navigator/idea-diagrams";
 import { featuresOf, rankActions } from "@/lib/navigator/actions";
+import { ChargeCheck, WatchList } from "@/components/navigator/charge-check";
+import { DecisionFile } from "@/components/navigator/decision-file";
+import { NO_SETUP, chargeVerdict, setupDone, type ChargeSetup } from "@/lib/navigator/charging";
+import { olderThanUsual } from "@/lib/navigator/freshness";
+import { WATCH_SEED, type Watch } from "@/lib/navigator/watch";
 import { CostChart } from "@/components/navigator/CostChart";
 import { FACTS, FACT_VIEW, type Fact, type FactKey } from "@/lib/navigator/facts";
 import { applyDataset, seedRows, type DatasetRow } from "@/lib/navigator/dataset";
@@ -41,7 +46,7 @@ import { ordinaryWeek } from "@/lib/navigator/week";
 import { cardBlob } from "@/lib/navigator/share-card";
 import { revisitIcs } from "@/lib/navigator/revisit";
 import { wouldHaveToBeTrue, type Counterfactual, type LeverKey } from "@/lib/navigator/counterfactual";
-import { CANTONS, listFacts, loadDataset, cantonHomeRate, lookupPostcode, officialHomeRate, saveSession, type OfficialHome, type SessionBag } from "@/lib/navigator/session";
+import { CANTONS, listFacts, loadDataset, cantonHomeRate, lookupPostcode, officialHomeRate, saveSession, listWatch, type OfficialHome, type SessionBag } from "@/lib/navigator/session";
 import {
   BARRIERS,
   CLASSES,
@@ -55,6 +60,7 @@ import {
   evaluate,
   OUT,
   SOURCES,
+  SPECS,
   focusKind,
   homeCopy,
   kmPhrase,
@@ -172,6 +178,8 @@ export function Navigator() {
   const [outcomes, setOutcomes] = useState<string[]>([]);
   const [moveShown, setMoveShown] = useState<string | null>(null);
   const [settlement, setSettlement] = useState<"city" | "town" | "rural" | null>(null);
+  // Optional charging set-up check on "My place": three taps, closed values, never in the francs.
+  const [chargeSetup, setChargeSetup] = useState<ChargeSetup>(NO_SETUP);
   const [sent, setSent] = useState<"idle" | "sending" | "saved" | "failed">("idle");
   const [sentStage, setSentStage] = useState<"mid" | "final" | null>(null);
   const [gap, setGap] = useState<Gap | null>(null);
@@ -180,6 +188,8 @@ export function Navigator() {
   const sendSession = useServerFn(saveSession);
   const loadFacts = useServerFn(listFacts);
   const fetchDataset = useServerFn(loadDataset);
+  const fetchWatch = useServerFn(listWatch);
+  const [watch, setWatch] = useState<Watch[]>(WATCH_SEED);
   const [datasetVersion, setDatasetVersion] = useState<string | undefined>(undefined);
   const [datasetRows, setDatasetRows] = useState<DatasetRow[]>(() => seedRows());
   const [cohort, setCohort] = useState<string | null>(null);
@@ -233,6 +243,9 @@ export function Navigator() {
         setDatasetRows(d.rows as DatasetRow[]);
       })
       .catch(() => undefined);
+    void fetchWatch()
+      .then((rows) => setWatch(rows))
+      .catch(() => undefined);
     void loadOfficial()
       .then((row) => setOfficial(row))
       .catch(() => setOfficial(null));
@@ -274,7 +287,17 @@ export function Navigator() {
     setHomeGrain(null);
     setCantonState("idle");
     setFromSample(false);
+    clearPersonal();
     setStep("barrier");
+  }
+
+  // "Start again" forgets the optional extras too: postcode, settlement, set-up taps and the taps on moves.
+  function clearPersonal() {
+    setPostcode(null);
+    setSettlement(null);
+    setChargeSetup(NO_SETUP);
+    setOutcomes([]);
+    setMoveShown(null);
   }
 
   function start() {
@@ -286,6 +309,7 @@ export function Navigator() {
     setSent("idle");
     setSentStage(null);
     setFromSample(false);
+    clearPersonal();
     setStep("barrier");
   }
 
@@ -448,6 +472,7 @@ export function Navigator() {
       settlement,
       moveShown,
       outcomes,
+      chargeSetup,
       fromSample,
       datasetVersion,
       cohort,
@@ -473,6 +498,7 @@ export function Navigator() {
           settlement ?? "",
           moveShown ?? "",
           outcomes.join(","),
+          `${chargeSetup.main ?? ""}${chargeSetup.backup ?? ""}${chargeSetup.standing ?? ""}`,
           result.homeOfficial ? "1" : "0",
           opened.join(","),
           JSON.stringify(result.toggles),
@@ -695,6 +721,13 @@ export function Navigator() {
           setSentStage(null);
         }}
         postcodeSet={postcode != null}
+        watch={watch}
+        chargeSetup={chargeSetup}
+        onChargeSetup={(next) => {
+          setChargeSetup(next);
+          setSent("idle");
+          setSentStage(null);
+        }}
         outcomes={outcomes}
         onOutcome={(key) => {
           const id = key.slice(0, key.lastIndexOf("."));
@@ -949,6 +982,15 @@ function BarrierStep({
               </li>
             ))}
           </ul>
+          <p className="mt-3 text-xs leading-relaxed text-muted">
+            Also worth a minute:{" "}
+            <button type="button" onClick={() => onFact("wait-or-not")} className="min-h-11 font-medium text-spruce underline underline-offset-2">
+              Should I wait for better batteries?
+            </button>{" "}
+            <button type="button" onClick={() => onFact("car-data")} className="min-h-11 font-medium text-spruce underline underline-offset-2">
+              Does a connected car track me?
+            </button>
+          </p>
         </section>
       </div>
     </div>
@@ -1480,12 +1522,18 @@ function ResultView({
   settlement,
   onSettlement,
   postcodeSet,
+  watch,
+  chargeSetup,
+  onChargeSetup,
   outcomes,
   onOutcome,
   onShown,
   datasetRows,
   datasetVersion,
 }: {
+  watch: Watch[];
+  chargeSetup: ChargeSetup;
+  onChargeSetup: (next: ChargeSetup) => void;
   outcomes: string[];
   onOutcome: (key: string) => void;
   onShown: (id: string | null) => void;
@@ -1533,7 +1581,11 @@ function ResultView({
     [result, sens, picks],
   );
   const scenOutcome = scen ? { payback: scen.paybackYears != null && scen.saving > 40 ? scen.paybackYears : null, saving: scen.saving } : null;
-  const ranked = useMemo(() => rankActions(featuresOf(result), (sens?.drivers ?? []).map((d) => ({ id: d.id, label: d.label }))), [result, sens]);
+  const verdictSetup = useMemo(() => chargeVerdict(chargeSetup, result.answers.workAccess), [chargeSetup, result.answers.workAccess]);
+  const ranked = useMemo(
+    () => rankActions(featuresOf(result, verdictSetup?.level ?? null), (sens?.drivers ?? []).map((d) => ({ id: d.id, label: d.label }))),
+    [result, sens, verdictSetup],
+  );
   const shownId = ranked.find((r) => !outcomes.some((o) => o === `${r.action.id}.done` || o === `${r.action.id}.not_for_me`))?.action.id ?? null;
   useEffect(() => {
     onShown(shownId);
@@ -1979,6 +2031,17 @@ function ResultView({
           ) : null}
           {panel === "place" ? (
             <>
+        <ChargeCheck
+          setup={chargeSetup}
+          onSetup={(next) => {
+            if (!setupDone(chargeSetup) && setupDone(next)) onAction("charge_check");
+            onChargeSetup(next);
+          }}
+          workAccess={result.answers.workAccess}
+          parking={result.answers.parking}
+          kwhPer100={SPECS[result.bevClass].kwh}
+          onNext={() => document.getElementById("next-move")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+        />
         <LocalPerson
           canton={canton}
           cantonState={cantonState}
@@ -1990,6 +2053,8 @@ function ResultView({
           onSettlement={onSettlement}
           postcodeSet={postcodeSet}
         />
+
+        <WatchList rows={watch} onFact={onFact} today={new Date().toISOString().slice(0, 10)} />
 
         <section>
           <h2 className="font-medium">If the number is not the whole worry</h2>
@@ -2053,6 +2118,8 @@ function ResultView({
             ))}
           </ul>
         </section>
+
+        <Glossary id="glossary" />
 
         <section className="rounded-2xl border border-line bg-card">
           <button type="button" onClick={onToggleTrace} className="flex min-h-14 w-full items-center justify-between px-4 text-left" aria-expanded={openTrace}>
@@ -2169,6 +2236,24 @@ function ResultView({
         <div id="keep" className="flex flex-col gap-4">
         <ShareNote result={result} onAction={onAction} />
 
+        <section id="decision-file-card" className="rounded-2xl border border-line bg-card p-4">
+          <h2 className="font-medium">A decision file for the car in front of you</h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted">
+            One page to print or save as a PDF: your result, the figures it used, five questions for a seller, the battery certificate fields, four lease questions, and empty boxes for the model and the quote. Made on this device. Nothing is sent.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              onAction("dossier");
+              printDossier();
+            }}
+            className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-spruce font-medium text-spruce-ink"
+          >
+            <Download className="h-4 w-4" />
+            Print or save the decision file
+          </button>
+        </section>
+
         <section id="plan" className="rounded-2xl border border-line bg-card p-4">
           <h2 className="font-medium">Keep the plan</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
@@ -2178,7 +2263,7 @@ function ResultView({
                 ? "Not stored. The plan below is still the current case."
                 : "Stored, as bands. It follows every change on this page. No name, no sentence."}
           </p>
-          <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap [overflow-wrap:anywhere] rounded-2xl bg-sheet p-3 text-sm leading-relaxed">{planText(result)}</pre>
+          <pre tabIndex={0} aria-label="The plan as text, scrollable" className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap [overflow-wrap:anywhere] rounded-2xl bg-sheet p-3 text-sm leading-relaxed">{planText(result)}</pre>
           <div className="mt-4 flex flex-col gap-2">
             {sent === "failed" ? (
               <button type="button" onClick={onSend} className="h-12 rounded-full bg-spruce font-medium text-spruce-ink">
@@ -2207,6 +2292,13 @@ function ResultView({
         </button>
         </div>
       </div>
+      <DecisionFile
+        result={result}
+        verdict={verdictSetup}
+        drivers={(sens?.drivers ?? []).slice(0, 3).map((d) => d.label)}
+        caseLine={`${labelClass(result.iceClass)} · ${labelFuel(result.answers.fuel ?? "petrol")} · ${kmPhrase(result.answers.km, result.km, result.kmSource === "default" ? result.persona.title : undefined)} · ${parkPhrase(result.answers.parking)}`}
+        origin={typeof window === "undefined" ? "" : window.location.origin}
+      />
       {sheetKind ? <NumberSheetModal sheet={numberSheet(sheetKind, result, datasetRows)} version={datasetVersion} onClose={() => setSheetKind(null)} /> : null}
       <ActionBar
         note={barNote}
@@ -2241,6 +2333,16 @@ function downloadReminder() {
   a.click();
   a.remove();
   URL.revokeObjectURL(href);
+}
+
+function printDossier() {
+  document.body.classList.add("print-dossier");
+  const done = () => {
+    document.body.classList.remove("print-dossier");
+    window.removeEventListener("afterprint", done);
+  };
+  window.addEventListener("afterprint", done);
+  window.setTimeout(() => window.print(), 60);
 }
 
 function ClimateLine({ alreadyElectric, km }: { alreadyElectric: boolean; km: KmBand | null }) {
@@ -2638,6 +2740,7 @@ function YearSplit({ parts, cash }: { parts: Result["parts"]; cash: number }) {
 }
 
 function shareText(result: Result): string {
+  const here = typeof window === "undefined" || /^(localhost|127\.|\[)/.test(window.location.hostname) ? null : window.location.origin;
   const pay =
     result.paybackYears == null || result.saving <= 40
       ? "There is no payback year. On these figures the switch does not cost less to run."
@@ -2652,6 +2755,7 @@ function shareText(result: Result): string {
     `Still open: ${open}.`,
     next ? `Next: ${next}.` : "",
     "The prices are placeholders. Not a quote, and not an offer.",
+    here ? `Check your own week: ${here}` : "",
   ]
     .filter(Boolean)
     .join("\n");
@@ -3095,6 +3199,14 @@ const FOLLOW: Record<FactKey, { prompt: string; chips: { label: string; detail?:
     prompt: "Open “My place” on the result and add a postcode to get your commune's page. A grant that might already be used up still would not belong in this sum.",
     chips: [],
   },
+  "wait-or-not": {
+    prompt: "Your result already shows what a year of the car you have costs to run. That is the price of waiting. Open “What if” to see how sure it is.",
+    chips: [],
+  },
+  "car-data": {
+    prompt: "This sheet changes no answer. The message to ask the maker is in “Your next move” when trust is what holds you back.",
+    chips: [],
+  },
 };
 
 function FactSheet({
@@ -3224,7 +3336,9 @@ function FactSheet({
             {fact.linkName ?? fact.title}
           </a>
         ) : null}
-        <p className="mt-1 text-sm text-muted">Checked {when}.</p>
+        <p className="mt-1 text-sm text-muted">
+          Checked {when}.{olderThanUsual(factKey, fact.as_of) ? " Older than usual for this kind of fact, so look at the source before you rely on it." : ""}
+        </p>
         <section className="mt-6">
           {follow.chips.length > 0 ? (
             <>

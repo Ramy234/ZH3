@@ -86,3 +86,75 @@ h1[tabindex="-1"]:focus {
     animation: none;
   }
 }
+
+/* The decision file is built into the page but only shows when it is printed (see decision-file.tsx). */
+#decision-file {
+  display: none;
+}
+@media print {
+  body.print-dossier > *:not(#decision-file) {
+    display: none !important;
+  }
+  body.print-dossier #decision-file {
+    display: block;
+    background: #fff;
+    color: #111;
+    font-size: 10.5pt;
+    line-height: 1.4;
+    padding: 0;
+  }
+  #decision-file h1 {
+    font-size: 17pt;
+    margin: 0 0 4pt;
+  }
+  #decision-file h2 {
+    font-size: 11.5pt;
+    margin: 12pt 0 3pt;
+    border-bottom: 0.5pt solid #999;
+    padding-bottom: 2pt;
+    break-after: avoid;
+  }
+  #decision-file p {
+    margin: 3pt 0;
+  }
+  #decision-file ul,
+  #decision-file ol {
+    margin: 3pt 0 3pt 14pt;
+    padding: 0;
+  }
+  #decision-file table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 4pt 0;
+  }
+  #decision-file th,
+  #decision-file td {
+    text-align: left;
+    padding: 2pt 4pt;
+    border-bottom: 0.5pt solid #ccc;
+    font-weight: normal;
+  }
+  #decision-file td {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  #decision-file .df-sub,
+  #decision-file .df-small {
+    font-size: 9pt;
+    color: #444;
+  }
+  #decision-file .df-strong {
+    font-weight: 600;
+  }
+  #decision-file .df-blanks div {
+    border: 0.5pt solid #777;
+    min-height: 20pt;
+    margin: 4pt 0;
+    padding: 2pt 4pt;
+    break-inside: avoid;
+  }
+  #decision-file .df-blanks span {
+    font-size: 8.5pt;
+    color: #555;
+  }
+}

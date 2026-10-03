@@ -1,5 +1,8 @@
 import { BANDS, band, cleanPostcode, money } from "./bands.ts";
 import { ACTION_IDS, cleanOutcomes } from "./actions.ts";
+import { chargeVerdict, cleanSetup, setupDone } from "./charging.ts";
+import { gapCodesFor } from "./gapcodes.ts";
+import { WATCH_SEED, WATCH_STAGES, type Watch } from "./watch.ts";
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { FACTS, type Fact, type FactKey } from "@/lib/navigator/facts";
@@ -246,6 +249,34 @@ export const listFacts = createServerFn({ method: "GET" }).handler(async () => {
   });
 });
 
+/** Rules still being decided. The table is edited by a person; the seed in watch.ts is the same two rows and the fallback. */
+export const listWatch = createServerFn({ method: "GET" }).handler(async (): Promise<Watch[]> => {
+  try {
+    const sql = await getSql();
+    const rows = await sql<{ id: string; title: string; stage: string; body: string; meanwhile: string; source: string; url: string; as_of: string; next_check: string; codes: string[] }>`
+      select id, title, stage, body, meanwhile, source, url, as_of::text as as_of, next_check::text as next_check, codes from bev_watch order by id`;
+    const out: Watch[] = rows
+      .filter((r) => (WATCH_STAGES as readonly string[]).includes(r.stage) && r.url.startsWith("https://"))
+      .map((r) => ({
+        id: r.id,
+        title: r.title,
+        stage: r.stage as Watch["stage"],
+        text: r.body,
+        meanwhile: r.meanwhile,
+        source: r.source,
+        url: r.url,
+        asOf: r.as_of.slice(0, 10),
+        nextCheck: r.next_check.slice(0, 10),
+        codes: r.codes ?? [],
+        fact: WATCH_SEED.find((w) => w.id === r.id)?.fact,
+      }));
+    if (out.length > 0) return out;
+  } catch {
+    // table not migrated yet: the seed is the same rows
+  }
+  return WATCH_SEED;
+});
+
 export type DatasetPayload = { version: string; rows: DatasetRow[]; source: "database" | "seed" };
 
 /** Newest published dataset version. Falls back to the built-in seed if the table is missing or empty. */
@@ -311,6 +342,8 @@ export type SessionBag = {
   /** The next move shown first (an action id), and the person's taps on moves: "<id>.done" and so on. Closed lists. */
   moveShown?: string | null;
   outcomes?: string[];
+  /** Optional. Three taps from the charging set-up check: main place, backup, standing time. Closed values only. */
+  chargeSetup?: { main: string | null; backup: string | null; standing: string | null } | null;
   fromSample?: boolean;
   datasetVersion?: string;
   cohort?: string | null;
@@ -361,6 +394,9 @@ export const saveSession = createServerFn({ method: "POST" })
     const postcode = cleanPostcode(data.postcode);
     const toggles: Record<string, boolean> = {};
     for (const key of ONE_OF.toggle) toggles[key] = Boolean(data.toggles?.[key]);
+    const setup = cleanSetup(data.chargeSetup);
+    const chargeLevel = chargeVerdict(setup, one(data.workAccess, ONE_OF.workAccess))?.level ?? null;
+    const opened = openedFacts(data.openedFacts);
     const payload = {
       workflow: "bev-navigator",
       stage,
@@ -413,7 +449,18 @@ export const saveSession = createServerFn({ method: "POST" })
         { id: "solutions", n8n: "Switch", engine: "finite", output: toggles },
         { id: "analytics", n8n: "Postgres", engine: "batch", output: stage },
       ],
-      claimsOpened: openedFacts(data.openedFacts),
+      claimsOpened: opened,
+      // The gaps this sitting touched, in the codes of the INFRAS barrier list. Derived from closed answers only.
+      gapCodes: gapCodesFor({
+        barrier: one(data.barrier, ONE_OF.barrier),
+        worry: one(data.worry, ONE_OF.worry),
+        unclear: one(data.unclear, ONE_OF.unclear),
+        costSting: one(data.costSting, ONE_OF.costSting),
+        usedStance: one(data.usedStance, ONE_OF.usedStance),
+        openedFacts: opened,
+        chargeLevel,
+      }),
+      chargeSetup: setupDone(setup) ? { ...setup, level: chargeLevel } : null,
       fromSample: data.fromSample === true,
       cohort: cleanCohort(data.cohort),
       actions: cleanActions(data.actions),

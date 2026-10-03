@@ -21,7 +21,7 @@ for (const width of [360, 390, 1280]) {
   };
   await check("start");
   // The idea sheets open from the start page. Each has a picture that reacts to a tap.
-  for (const [open, label] of [[/A smaller car, and a bigger one only/, "2:1"], [/A used car's battery, checked by its age/, "battery"], [/Charging in a shared garage without/, "charger"]]) {
+  for (const [open, label] of [[/A smaller car, and a bigger one only/, "2:1"], [/A used car's battery, checked by its age/, "battery"], [/Charging in a shared garage without/, "charger"], [/Should I wait for better batteries/, "wait or not"], [/Does a connected car track me/, "car data"]]) {
     await page.getByRole("button", { name: open }).first().click();
     await page.waitForTimeout(400);
     const tap = page.getByRole("button", { name: /About 8 days|Over 5 years old/ }).first();
@@ -41,6 +41,21 @@ for (const width of [360, 390, 1280]) {
     await page.waitForTimeout(300);
     await check(`panel ${String(name)}`);
   }
+  // The charging set-up check and the rules-being-decided list live in "My place". Answer all three taps, open a rule.
+  await page.getByRole("tab", { name: /^My place$/ }).first().click();
+  await page.waitForTimeout(250);
+  const group = (q) => page.getByRole("group", { name: q });
+  await group(/regular main place/).getByRole("button", { name: "Maybe" }).click();
+  await group(/second place/).getByRole("button", { name: "No" }).click();
+  await group(/while the car stands/).getByRole("button", { name: "Yes" }).click();
+  await page.waitForTimeout(250);
+  await check("charging check answered");
+  await page.getByText(/What a price means per 100 km/).first().click();
+  await page.getByText(/^What it says$/).first().click();
+  await page.waitForTimeout(250);
+  await check("price table and a rule open");
+  await page.getByRole("tab", { name: /^What if$/ }).first().click();
+  await page.waitForTimeout(250);
   const slider = page.getByRole("slider").first();
   if (await slider.count()) {
     await slider.focus();

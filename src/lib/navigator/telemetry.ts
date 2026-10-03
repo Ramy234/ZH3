@@ -2,7 +2,7 @@
 // Shared by the app, the stored-session check in session.ts, W1 in n8n (tested to match) and the /sittings page.
 
 /** Things a person did on the result page. A closed list: no text, no timing, no order. */
-export const ACTIONS = ["fold_why", "fold_evidence", "share", "picture", "reminder", "try_lever"] as const;
+export const ACTIONS = ["fold_why", "fold_evidence", "share", "picture", "reminder", "try_lever", "dossier", "charge_check"] as const;
 export type Action = (typeof ACTIONS)[number];
 
 /** A sitting code from the link, like ?s=i3. Letters then one or two digits. It says which sitting, never who. */

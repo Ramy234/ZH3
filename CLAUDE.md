@@ -19,6 +19,8 @@ Read these first, in this order, before you change anything:
 - **AI may only classify** into a closed list, with a confidence, and there must be a rules fallback (see W6 in the handover).
 - **No sales.** No dealer or insurer offer, no car-model picker, no "chance you will switch", no gamified rewards for switching.
 - **Never collect** a name, an address, a coordinate or a free-text sentence. **A postcode is allowed since Martin's yes of 3 Oct 2026, on these conditions:** optional (never a barrier to the result), asked only on the result page with a short notice, stored only in `bev_locations` (never in the session payload or a counting view), deleted after 12 months, and shown outside the team only for groups of at least 10 (`PUBLIC_MIN_CELL`; internal views at least 5). Stored prices, quotes and litres are banded (`BANDS` in `session.ts`).
+- **Links.** Neutral publishers (EnergieSchweiz, TCS, Swiss eMobility, ElCom, BFE, BAFU) carry the next move. Martin's rule of 3 Oct 2026: provider and company links, Z-Volt included, are welcome as information, but only in a labelled "compare" or "provider" list, never as the next move, never first, never next to a price, never called neutral. `links.test.ts` pins this.
+- **Gap codes.** Each final session stores INFRAS gap codes (`gapcodes.ts`, 26 plus our X1). Counts show only groups of at least 5 internally and 10 outside. The session id is pseudonymous, not anonymous.
 - **Climate never enters the francs.** No personal kilogram of CO₂.
 - **These never enter the francs:** the 20 % insurance ceiling, grants, the draft federal levy from 2030, or a winter factor.
 - **Do not retune** the situation weights.

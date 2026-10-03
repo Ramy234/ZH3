@@ -8,7 +8,9 @@ export type FactKey =
   | "winter"
   | "not-for-me"
   | "canton-tax"
-  | "local-grant";
+  | "local-grant"
+  | "wait-or-not"
+  | "car-data";
 
 export type Fact = {
   key: FactKey;
@@ -110,6 +112,26 @@ export const FACTS: Record<FactKey, Fact> = {
     as_of: "2026-10-02",
     status: "dated",
   },
+  "wait-or-not": {
+    key: "wait-or-not",
+    title: "Wait for better batteries, or not",
+    body: "Batteries are getting cheaper. In 2025 the average pack price fell 8 percent, and the cheaper lithium-iron-phosphate type is now over half of electric-car batteries worldwide. Sodium-ion batteries exist in small numbers. Solid-state batteries are still prototypes, with makers announcing production between 2027 and 2030 and a mass market in the 2030s. None of this is a Swiss car price. A better car later is not a reason to call a good car now a bad one. And waiting is not free: each year you keep running the car you have is a year of its running cost, which is the figure on your result. If a used car or a smaller one makes today's price fit, buying now can be the fair answer. If the figures say keep, keeping while the market improves is fair too.",
+    source: "BloombergNEF battery price survey, 9 December 2025 (global average, USD, fell 8 percent). IEA Global EV Outlook 2026, batteries chapter (LFP share above 55 percent in 2025; sodium-ion limited; solid-state at prototype stage). Empa lecture of 9 September 2026 for context. Global figures, not a Swiss price.",
+    url: "https://iea.org/reports/global-ev-outlook-2026/electric-vehicle-batteries",
+    linkName: "IEA: electric vehicle batteries, Global EV Outlook 2026",
+    as_of: "2026-10-03",
+    status: "dated",
+  },
+  "car-data": {
+    key: "car-data",
+    title: "What a connected car passes on",
+    body: "Almost every new car, electric or petrol, sends some data to its maker. No recent study that compared matching new electric and petrol cars found one worse than the other. The drivetrain is a poor guide. What differs is the maker, the model year, the app and the settings. An old test of four cars in 2017 found data leaving petrol cars as well as electric ones. A 2023 review of 25 brands by the Mozilla Foundation read their privacy terms, not measured traffic, and rated all 25 as failing. What an electric car adds is public charging: the operator can hold a record of where and when you charged. A written question to the maker, for the exact model and settings, is stronger evidence than any ranking. This sheet ranks no brand and names no model.",
+    source: "SRF on the ADAC examination, 21 February 2017 (four cars, old). Mozilla Foundation, Privacy Not Included, September 2023 (policies, not measurements). CNIL recommendation on connected-vehicle location data, June 2026 (France). Quebec Commission on Ethics in Science and Technology, August 2026 (Canada). Outside Switzerland except the SRF report.",
+    url: "https://www.srf.ch/news/schweiz/datenkrake-auto-wie-uns-autobauer-ausspaehen",
+    linkName: "SRF: how car makers see what we do (2017)",
+    as_of: "2026-10-03",
+    status: "dated",
+  },
 };
 
 export type FactView = {
@@ -130,6 +152,7 @@ export const FACT_VIEW: Record<FactKey, FactView> = {
     lines: [
       { label: "The idea", text: "Own the car for ordinary days. Book a larger one for the few days it cannot do." },
       { label: "In writing, or it is not a plan", text: "Class, price, kilometres, insurance, permission to travel, and a fallback car." },
+      { label: "What must be written down", text: "How many days a year are guaranteed. How early you book, and what happens in a peak week. Which class of car, with a roof box or bike rack if you need one. Who pays insurance, charging and damage. What ends the guarantee, and who is the other party." },
       { label: "Who could offer it", text: "A dealer pool is one example. A Renault agency was discussed for this project, and no public offer was found. Car sharing and an ordinary rental do the same job today." },
       { label: "In this check", text: "The switch “One class down” prices it: a smaller car, and the exceptional days booked as rental at an illustrative day rate." },
     ],
@@ -204,6 +227,11 @@ export const FACT_VIEW: Record<FactKey, FactView> = {
   },
   "public-tariff": {
     kicker: "An average. Not a live price.",
+    links: [
+      { name: "EnergieSchweiz: map of public charging points", href: "https://www.energieschweiz.ch/tools/ladeinfrastruktur-schweiz/", note: "Neutral, federal. Plugs, power and, for most points, free or taken right now. The best first look at a place." },
+      { name: "ElCom: electricity prices by commune", href: "https://www.strompreis.elcom.admin.ch/", note: "The regulator's table of home electricity prices. Useful for the home share, not for public charging." },
+      { name: "Z-Volt, a charging service run by Zurich Insurance", href: "https://www.zurich.ch/de/privat/mobilitaet-reisen/zurich-zvolt", note: "A provider, not a neutral source: an app and card with a start fee per charge, open to anyone with a Swiss residence, with different prices for its own insurance customers. Listed so you can compare it with other cards, not as a recommendation." },
+    ],
     lines: [
       { label: "In the sum", text: "One public rate for every place: the TCS 2026 average for fast charging, about 59 rappen a kWh. With a subscription, about 51." },
       { label: "Why it can be off", text: "Providers differ by half or more, and roaming can add a lot. The price must be shown in francs per unit before you charge." },
@@ -216,6 +244,12 @@ export const FACT_VIEW: Record<FactKey, FactView> = {
       { label: "Today", text: "Article 260a of the Code of Obligations. A tenant changes the rented space only with written consent. A bay is for parking. Charging is not yet treated as that ordinary use." },
       { label: "The draft, until 12 October 2026", text: "Consultation opened 19 June 2026, Motion 23.3936. A person who lives there, and whose bay came with the home, could require a supply line, a way to meter use, and load management where needed. The owner would pay for that basic work and may pass it into the parking rent. The user pays for the charger. The work must stay reasonable." },
       { label: "Not this", text: "Not law. Not a workplace. Not a decision about a mobile charger. Not an answer for this building until someone writes one." },
+      { label: "No date yet", text: "The Federal Council has published no date of entry into force. Any year you read elsewhere is a guess, including ours. This page is checked again after the consultation closes." },
+      { label: "Meanwhile", text: "Ask in writing for a coordinated base installation for the whole garage, not one socket. Look for neighbours who want the same. Ask about load management. Check the cantonal and communal grants." },
+    ],
+    links: [
+      { name: "Federal Council: better access to charging at home, 19 June 2026", href: "https://www.admin.ch/de/newnsb/66VYsJf9n5dbavk-IhLan", note: "The official release of the draft and the consultation. Not law." },
+      { name: "Charging in a rented building, EnergieSchweiz", href: "https://www.energieschweiz.ch/ladeinfrastruktur/werkzeuge/ladeinfrastruktur-in-mietobjekten/", note: "Neutral federal guidance on asking a landlord or owners." },
     ],
   },
   winter: {
@@ -259,6 +293,38 @@ export const FACT_VIEW: Record<FactKey, FactView> = {
       { label: "From a canton", text: "Published lists disagree. One roundup, updated 10 September 2026, names only Ticino: 4,000 francs for a new electric car, with conditions, until the credit runs out. Other pages also name Basel-Stadt and Vaud. None of those amounts is subtracted here." },
       { label: "From a commune or a utility", text: "Sometimes a few hundred or a few thousand francs. The pot is capped and the rule expires. This check does not know your commune." },
       { label: "A solar roof", text: "A separate project. The federal one-off is paid after the panels are running. It is not taken off the car. The solar switch here only lowers an illustrative share of home charging. It does not price the roof." },
+    ],
+  },
+  "wait-or-not": {
+    kicker: "Global figures. Not a Swiss price.",
+    figure: {
+      value: "8%",
+      caption: "How much the average battery pack price fell in 2025, in the BloombergNEF survey of 9 December 2025. The IEA reports the same drop. A global average, in dollars, for the pack only. A car has more parts than a battery.",
+    },
+    links: [
+      { name: "IEA: electric vehicle batteries, Global EV Outlook 2026", href: "https://iea.org/reports/global-ev-outlook-2026/electric-vehicle-batteries", note: "The intergovernmental energy agency. Prices, the share of cheaper cell types, and how far sodium-ion and solid-state have come." },
+      { name: "BloombergNEF: battery pack prices fall to $108 a kWh", href: "https://about.bnef.com/insights/commodities/lithium-ion-battery-pack-prices-fall-to-108-per-kilowatt-hour-despite-rising-metal-prices/", note: "An analyst firm's press release. Global averages, with China, Europe and North America apart." },
+    ],
+    lines: [
+      { label: "What is changing", text: "Cheaper cell types are spreading. Sodium-ion exists in small numbers. Solid-state is still a prototype, with production announced between 2027 and 2030 and a mass market later." },
+      { label: "What waiting costs", text: "A year of running the car you have. That is the figure on your result, and it is the honest price of waiting." },
+      { label: "What a better car later does not mean", text: "That today's car is a bad one. Cars bought in 2020 still drive. A used electric car also keeps the battery question small if it has a certificate." },
+      { label: "What nobody can tell you", text: "A Swiss price for a car in five years. This sheet gives none." },
+    ],
+  },
+  "car-data": {
+    kicker: "Every connected car, not only electric ones. No brand ranking.",
+    links: [
+      { name: "SRF: how car makers see what we do", href: "https://www.srf.ch/news/schweiz/datenkrake-auto-wie-uns-autobauer-ausspaehen", note: "Swiss broadcaster, 21 February 2017, on an ADAC examination of four cars. Old, and not a ranking." },
+      { name: "Mozilla Foundation: cars and privacy, 2023", href: "https://www.mozillafoundation.org/en/privacynotincluded/articles/its-official-cars-are-the-worst-product-category-we-have-ever-reviewed-for-privacy/", note: "A non-profit's review of 25 brands' privacy terms. Terms, not measured traffic. Outside Switzerland." },
+      { name: "CNIL: location data from connected cars, June 2026", href: "https://www.cnil.fr/fr/recommandation-vehicules-connectes-localisation", note: "The French data-protection authority, in French. Guidance, not a test. Outside Switzerland." },
+      { name: "Quebec: risks and ethical issues of connected vehicles", href: "https://www.ethique.gouv.qc.ca/publications/les-risques-et-enjeux-ethiques-des-vehicules-connectes/", note: "An expert report of August 2026 listing twelve issues. A risk map, not a measurement. Outside Switzerland." },
+    ],
+    lines: [
+      { label: "What the evidence says", text: "No recent study that compared matching new electric and petrol cars found one worse. The drivetrain is a poor guide. The maker, the model year, the app and the settings decide." },
+      { label: "What an electric car adds", text: "Public charging. The operator or the card provider can hold a record of where and when you charged. Charging at home or at work leaves a different trail." },
+      { label: "At handover", text: "Open the car's privacy or connectivity settings together with the seller, and choose the most private option. Do not link an app account unless you want the remote functions. Ask how to reset the car for a second driver, and when you sell it." },
+      { label: "In writing", text: "Ask the maker which data leave the car for your exact model and settings, who receives them, where they are processed, and for how long. The next-move card has the message to copy." },
     ],
   },
 };

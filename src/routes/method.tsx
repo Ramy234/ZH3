@@ -6,6 +6,7 @@ import { loadDataset } from "@/lib/navigator/session";
 import { seedRows, type DatasetRow } from "@/lib/navigator/dataset";
 import { DATASET, SOURCES } from "@/lib/navigator/model";
 import { LEFT_OUT, STEPS } from "@/lib/navigator/method";
+import { Glossary } from "@/components/navigator/result-parts";
 import { DatasetLine, dateLabel } from "@/components/navigator/numbers-ui";
 import type { SheetLine } from "@/lib/navigator/numbers";
 
@@ -177,6 +178,25 @@ function Method() {
               </li>
             ))}
           </ul>
+        </section>
+
+        <section className="mt-12">
+          <h2 className="font-serif text-2xl">What is kept when you use it</h2>
+          <div className="mt-3 max-w-2xl rounded-2xl border border-line bg-card p-4 text-sm leading-relaxed">
+            <p>
+              Everything you tap stays in your browser until the result. Then one record is saved: your closed answers, banded money values, and a random session number. That number is pseudonymous, not anonymous: it lets a later visit of yours be linked to an earlier one, nothing more. No name, no address, no free text.
+            </p>
+            <p className="mt-3">
+              An optional postcode is kept apart from the answers, deleted after 12 months, and shown outside the team only for groups of at least 10 people.
+            </p>
+            <p className="mt-3">
+              What stood in the way is counted in the seven groups of the Zurich study on barriers to charging at home and at work (INFRAS for the Canton of Zurich, 1 July 2026). A few answers add a code from that list, and only a group of at least 10 is ever reported. The counts show where information is missing, never who you are.
+            </p>
+          </div>
+        </section>
+
+        <section className="mt-12">
+          <Glossary id="method-glossary" />
         </section>
 
         <p className="mt-12 max-w-2xl text-xs leading-relaxed text-muted">

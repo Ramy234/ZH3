@@ -5,6 +5,11 @@
 import { OUT, type Result, type Toggles } from "./model.ts";
 import type { Driver } from "./sensitivity.ts";
 
+/** Where the neutral map of public charging points lives. Opened and read on 3 October 2026. */
+export const CHARGE_MAP = "https://www.energieschweiz.ch/tools/ladeinfrastruktur-schweiz/";
+/** EnergieSchweiz links this database of grants, searched by postcode. Opened on 3 October 2026. */
+export const GRANTS_BY_POSTCODE = "https://www.energiefranken.ch/de";
+
 export type ActionKind = "ask" | "write" | "test" | "read" | "remind" | "local" | "plan";
 export type ActionStatus = "live" | "draft" | "retired";
 export type PanelId = "whatif" | "week" | "place" | "sources";
@@ -24,6 +29,10 @@ export type Cond = {
   toggle?: Partial<Record<keyof Toggles, boolean>>;
   /** True: neither home nor work charging is on. */
   noCharging?: boolean;
+  /** The level the charging set-up check reached (see charging.ts). Absent until the person answers it. */
+  chargeLevel?: string[];
+  /** Fails when the check reached one of these levels. */
+  notChargeLevel?: string[];
 };
 
 /** Only these publishers may be linked. A paid-per-lead platform, a dealer or an insurer is never on the list. */
@@ -72,9 +81,30 @@ export const ACTIONS_SEED: Action[] = [
     closes: ["charging"],
     drivers: ["home", "public"],
     because: "you have no charging point at home or at work yet",
-    when: [{ parking: HARD, noCharging: true }],
+    when: [{ parking: HARD, noCharging: true, notChargeLevel: ["holds"] }],
     panel: "whatif",
     lever: "home",
+  },
+  {
+    id: "test-charging-week",
+    version: 1,
+    kind: "test",
+    status: "live",
+    title: "Test your charging places for one week",
+    text: "A map shows a moment. A week at your own hours shows whether the place is free, allowed, reachable and fairly priced. It is the cheapest way to find out before you buy anything.",
+    lines: [
+      "Is it free at the hours you would use it: early morning, evening, Saturday?",
+      "May you park there for that long, and is there a fee or a time limit?",
+      "How far is the walk, and does a card or an app open it?",
+      "What does a kWh cost, and are there start, time or blocking fees?",
+      "Is there a second place, run by someone else, within reach?",
+    ],
+    link: { name: "EnergieSchweiz: map of public charging points", href: CHARGE_MAP, publisher: "EnergieSchweiz", checked: "2026-10-03" },
+    minutes: 15,
+    closes: ["charging"],
+    drivers: ["public", "home"],
+    because: "a charging place only counts once you have tried it at your own hours",
+    when: [{ chargeLevel: ["test", "timing", "backup"] }, { parking: HARD, noCharging: true }],
   },
   {
     id: "ask-employer",
@@ -89,7 +119,7 @@ export const ACTIONS_SEED: Action[] = [
     closes: ["charging"],
     drivers: ["home", "public"],
     because: "charging at work could carry most of your kilometres",
-    when: [{ workAccess: ["ask", "yes"] }, { parking: HARD, use: ["commute"] }],
+    when: [{ workAccess: ["ask", "yes"] }, { parking: HARD, use: ["commute"] }, { chargeLevel: ["missing"] }],
     panel: "whatif",
     lever: "work",
   },
@@ -107,7 +137,7 @@ export const ACTIONS_SEED: Action[] = [
     closes: ["charging"],
     drivers: ["home"],
     because: "your parking is a building decision, not only yours",
-    when: [{ parking: ["shared", "unsure"] }],
+    when: [{ parking: ["shared", "unsure"] }, { chargeLevel: ["missing"], workAccess: ["no"] }],
   },
   {
     id: "check-battery",
@@ -160,10 +190,10 @@ export const ACTIONS_SEED: Action[] = [
     id: "trial-routes",
     version: 1,
     kind: "test",
-    status: "draft",
+    // Retired 3 October 2026: the EnergieSchweiz page /probefahren/ now redirects to the programme's front page, which lists no trial offer.
+    status: "retired",
     title: "Try an electric car for longer than a test drive",
-    text: "A federal programme lists ways to drive an electric car for days or weeks before you decide. Draft: the page has not been checked yet.",
-    link: { name: "Fahr mit dem Strom: try an electric car", href: "https://www.energieschweiz.ch/programme/fahr-mit-dem-strom/probefahren/", publisher: "EnergieSchweiz" },
+    text: "The federal page that once listed this no longer does. Not shown.",
     minutes: 15,
     closes: ["trust"],
     drivers: [],
@@ -229,13 +259,63 @@ export const ACTIONS_SEED: Action[] = [
     run: "reminder",
   },
   {
+    id: "ask-seller",
+    version: 1,
+    kind: "ask",
+    status: "live",
+    title: "Put five questions to any seller",
+    text: "Some sellers know electric cars well and some do not. Five written questions show which one you are talking to, and they cost nothing.",
+    template:
+      "Hello, I am considering this car. Please tell me in writing: 1) How will you show me how charging works, at home and on the road? 2) For a used car: may I see a battery-health certificate with date, kilometres, method and result? 3) What warranty is left on the battery, and who honours it? 4) Would you buy it back, or tell me what it is likely to be worth in a few years? 5) What does the full price include: charging cable, registration, delivery? Thank you.",
+    minutes: 5,
+    closes: ["trust", "cost"],
+    drivers: ["price", "resale"],
+    because: "a seller's answers are part of how far you can trust the car",
+    when: [{ barrier: ["trust", "cost"] }, { usedStance: ["yes"] }],
+  },
+  {
+    id: "ask-car-data",
+    version: 1,
+    kind: "ask",
+    status: "live",
+    title: "Ask what the car sends, before you sign",
+    text: "Connected cars of every kind pass data on. A written, configuration-specific answer from the maker is stronger than any brand ranking. No study shows an electric car is worse than a petrol one.",
+    template:
+      "Hello, I am considering the [model, year]. With no app account linked, navigation unused and the data-sharing setting on the most private choice, which data leave the car: location, trips, mileage, battery state, faults? For each: what triggers it, who receives it, where it is processed and how long it is kept? How do I reset it for a second driver or when I sell the car? Please answer in writing. Thank you.",
+    minutes: 5,
+    closes: ["trust"],
+    drivers: [],
+    because: "you said trust is what holds you back, and what a car passes on is part of it",
+    when: [{ barrier: ["trust"] }],
+  },
+  {
+    id: "ask-two-for-one-terms",
+    version: 1,
+    kind: "ask",
+    status: "live",
+    title: "If someone offers you a bigger car for the few days, get these in writing",
+    text: "A promise of a bigger car for holidays is only a plan when the terms are written down. Without them it is a nice idea.",
+    lines: [
+      "How many days a year are guaranteed?",
+      "How early must you book, and what happens in a peak holiday week?",
+      "Which class of car, with a roof box or bike rack if you need it?",
+      "Who pays insurance, charging and damage?",
+      "What ends the guarantee, and who is the other party to the contract?",
+    ],
+    minutes: 5,
+    closes: ["trips"],
+    drivers: ["price", "resale"],
+    because: "the rare trips are what you worry about, and a promise only helps if it is written down",
+    when: [{ barrier: ["trips"] }, { toggle: { rightSize: true } }],
+  },
+  {
     id: "see-commune",
     version: 1,
     kind: "local",
     status: "live",
     title: "Look up your commune's own page",
-    text: "Grants, tariffs and charging rules differ by canton and commune. The energy advice directory lists the page for yours.",
-    link: { name: "EnergieSchweiz: energy advice", href: OUT.energyAdvice, publisher: "EnergieSchweiz" },
+    text: "Grants, tariffs and charging rules differ by canton and commune. Energiefranken, which EnergieSchweiz links, lists the grants for a postcode. The energy advice directory names a person for yours.",
+    link: { name: "Energiefranken: grants for your postcode", href: GRANTS_BY_POSTCODE, publisher: "EnergieSchweiz", checked: "2026-10-03" },
     minutes: 5,
     closes: ["local"],
     drivers: [],
@@ -246,13 +326,13 @@ export const ACTIONS_SEED: Action[] = [
 ];
 
 /** Every action a stored session may name as the move shown. Drafts are not shown, so they are not here. */
-export const ACTION_IDS: string[] = ACTIONS_SEED.filter((a) => a.status !== "draft").map((a) => a.id);
+export const ACTION_IDS: string[] = ACTIONS_SEED.filter((a) => a.status === "live").map((a) => a.id);
 
 export const OUTCOMES = ["done", "not_for_me", "unclear"] as const;
 export type Outcome = (typeof OUTCOMES)[number];
 
 /** The closed list a stored session may carry for next-move taps: "<action id>.<outcome>". */
-export const OUTCOME_KEYS: string[] = ACTIONS_SEED.filter((a) => a.status !== "draft").flatMap((a) => OUTCOMES.map((o) => `${a.id}.${o}`));
+export const OUTCOME_KEYS: string[] = ACTIONS_SEED.filter((a) => a.status === "live").flatMap((a) => OUTCOMES.map((o) => `${a.id}.${o}`));
 
 export function cleanOutcomes(value: unknown): string[] {
   const out: string[] = [];
@@ -275,9 +355,11 @@ export type Features = {
   carClass: string;
   ending: "covered" | "keep";
   toggles: Partial<Record<keyof Toggles, boolean>>;
+  /** From the optional charging set-up check. Null until answered. */
+  chargeLevel: string | null;
 };
 
-export function featuresOf(r: Result): Features {
+export function featuresOf(r: Result, chargeLevel: string | null = null): Features {
   const covered = r.paybackYears != null && r.saving > 40 && r.paybackYears <= 8;
   return {
     barrier: r.answers.barrier,
@@ -290,6 +372,7 @@ export function featuresOf(r: Result): Features {
     carClass: r.iceClass,
     ending: covered ? "covered" : "keep",
     toggles: r.toggles,
+    chargeLevel,
   };
 }
 
@@ -304,6 +387,8 @@ export function matches(c: Cond, f: Features): boolean {
   if (!has(c.usedStance, f.usedStance)) return false;
   if (!has(c.fuel, f.fuel)) return false;
   if (!has(c.km, f.km)) return false;
+  if (!has(c.chargeLevel, f.chargeLevel)) return false;
+  if (c.notChargeLevel && f.chargeLevel && c.notChargeLevel.includes(f.chargeLevel)) return false;
   if (c.ending && !c.ending.includes(f.ending)) return false;
   if (c.use && !c.use.some((u) => f.uses.includes(u))) return false;
   if (c.noUse && c.noUse.some((u) => f.uses.includes(u))) return false;

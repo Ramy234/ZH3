@@ -22,9 +22,9 @@ test("actions: ids are unique, minutes are small, every link comes from a neutra
   }
 });
 
-test("actions: a draft is never shown", () => {
+test("actions: a draft or retired action is never shown", () => {
   const r = ranked(A({ ...SAMPLE, barrier: "trust" }));
-  assert.ok(ACTIONS_SEED.some((a) => a.status === "draft"));
+  assert.ok(ACTIONS_SEED.some((a) => a.status !== "live"));
   assert.ok(r.every((x) => x.action.status === "live"));
   assert.ok(!r.some((x) => x.action.id === "trial-routes"));
 });
@@ -60,4 +60,22 @@ test("actions: only closed outcome keys are kept", () => {
   assert.ok(OUTCOME_KEYS.includes("ask-employer.done"));
   assert.ok(!OUTCOME_KEYS.some((k) => k.startsWith("trial-routes")));
   assert.deepEqual(cleanOutcomes(["ask-employer.done", "ask-employer.done", "nope.done", "ask-employer.maybe", 5]), ["ask-employer.done"]);
+});
+
+test("actions: the charging set-up check changes the move, and a set-up that holds drops 'settle charging'", () => {
+  const a = A({ ...SAMPLE, parking: "none", barrier: "charging", workAccess: "no" });
+  const r = evaluate(a, { ...suggestToggles(a), home: false, work: false });
+  const ids = (level: string | null) => rankActions(featuresOf(r, level), []).map((x) => x.action.id);
+  assert.ok(ids(null).includes("settle-charging"));
+  assert.ok(!ids("holds").includes("settle-charging"));
+  assert.ok(ids("test").includes("test-charging-week"));
+  assert.ok(ids("missing").includes("ask-building"));
+});
+
+test("actions: the new ask actions keep to the rules (no company, no car model, neutral links only)", () => {
+  for (const id of ["ask-seller", "ask-car-data", "ask-two-for-one-terms", "test-charging-week"]) {
+    const a = ACTIONS_SEED.find((x) => x.id === id);
+    assert.ok(a && a.status === "live", id);
+    assert.ok(!/renault|tesla|byd|zurich|z-volt/i.test(JSON.stringify(a)), `${id} names a brand`);
+  }
 });

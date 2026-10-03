@@ -25,8 +25,8 @@ const ONE_OF = {
   unclear: ['km', 'payback', 'price', 'wording'],
   persona: ['urbanRenter', 'familyHome', 'distance', 'cost', 'skeptic', 'occasional'],
   via: ['tap', 'words'],
-  action: ['fold_why', 'fold_evidence', 'share', 'picture', 'reminder', 'try_lever'],
-  fact: ['two-for-one', 'mobile-charger', 'battery', 'workplace', 'public-tariff', 'tenant-right', 'winter', 'not-for-me', 'canton-tax', 'local-grant'],
+  action: ['fold_why', 'fold_evidence', 'share', 'picture', 'reminder', 'try_lever', 'dossier', 'charge_check'],
+  fact: ['two-for-one', 'mobile-charger', 'battery', 'workplace', 'public-tariff', 'tenant-right', 'winter', 'not-for-me', 'canton-tax', 'local-grant', 'wait-or-not', 'car-data'],
 };
 const COHORT_RE = /^[a-z]{1,3}\d{1,2}$/;
 const cohort = typeof body.cohort === 'string' && COHORT_RE.test(body.cohort.trim().toLowerCase()) ? body.cohort.trim().toLowerCase() : null;

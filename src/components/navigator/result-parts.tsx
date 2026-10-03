@@ -8,6 +8,8 @@ import { statusWord } from "@/lib/navigator/numbers";
 import { describe, type DatasetRow } from "@/lib/navigator/dataset";
 import { dateLabel } from "@/components/navigator/numbers-ui";
 import { chf, type Result } from "@/lib/navigator/model";
+import { olderThanUsual } from "@/lib/navigator/freshness";
+import { GLOSSARY } from "@/lib/navigator/glossary";
 
 const OUTCOME_LABEL: Record<Outcome, string> = { done: "I did it", not_for_me: "Not for me", unclear: "I did not understand" };
 const KIND_LABEL = { ask: "Ask", write: "Write", test: "Try", read: "Read", remind: "Remind", local: "Local", plan: "Plan" } as const;
@@ -92,6 +94,7 @@ export function NextMove({
             {a.link.name}
           </a>
         ) : null}
+        {a.link ? <p className="w-full text-xs text-muted">Published by {a.link.publisher}{a.link.checked ? `. Opened and read on ${dateLabel(a.link.checked)}.` : "."}</p> : null}
         {a.run === "reminder" ? (
           <button type="button" onClick={onRemind} className="inline-flex min-h-11 items-center rounded-full bg-spruce px-4 text-sm font-medium text-spruce-ink">
             Download the reminder
@@ -247,7 +250,7 @@ export function WhatIf({
                 {d.id === "km"
                   ? "Your tap. The bands are under 10,000, 10,000 to 20,000 and over 20,000 km a year."
                   : row
-                    ? `${statusWord(row.status)}${row.publisher ? `: ${row.publisher}` : ""}${dateLabel(row.published_on) ? `, ${dateLabel(row.published_on)}` : ""}.`
+                    ? `${statusWord(row.status)}${row.publisher ? `: ${row.publisher}` : ""}${dateLabel(row.published_on) ? `, ${dateLabel(row.published_on)}` : ""}.${olderThanUsual(row.key, row.published_on) ? " Older than usual for this kind of figure." : ""}`
                     : "A rough class figure."}
               </p>
             </li>
@@ -270,6 +273,26 @@ export function WhatIf({
         This is a range, not a forecast, and it carries no probability. The end points are our choice, not a measured spread. Taxes, grants and winter are not in it.
       </p>
       {children}
+    </section>
+  );
+}
+
+
+export function Glossary({ id }: { id?: string }) {
+  return (
+    <section id={id} className="rounded-2xl border border-line bg-card p-4" aria-labelledby={`${id ?? "glossary"}-title`}>
+      <h2 id={`${id ?? "glossary"}-title`} className="font-medium">
+        Words used here
+      </h2>
+      <p className="mt-1 text-sm leading-relaxed text-muted">In plain words. None of these changes a figure.</p>
+      <dl className="mt-2 divide-y divide-line">
+        {GLOSSARY.map((w) => (
+          <div key={w.term} className="py-3">
+            <dt className="text-sm font-medium">{w.term}</dt>
+            <dd className="mt-0.5 text-sm leading-relaxed text-muted">{w.plain}</dd>
+          </div>
+        ))}
+      </dl>
     </section>
   );
 }
