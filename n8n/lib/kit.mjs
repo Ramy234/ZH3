@@ -42,3 +42,19 @@ export function workflow(name, nodes, pairs) {
   for (const [a, b] of pairs) if (!names.has(a) || !names.has(b)) throw new Error(`connection to a missing node: ${a} -> ${b}`);
   return { name, active: false, settings: { executionOrder: "v1", saveDataSuccessExecution: "none" }, nodes, connections: wire(pairs) };
 }
+
+// Job gate. A scheduled run first reads its own row in bev_jobs and stops, with no output, when the row says enabled = false.
+// "Run by hand" does not go through the gate: a person pressing the button is the switch. Switching a check on is one update:
+//   update bev_jobs set enabled = true where id = '<job id>';   (and activate the workflow in n8n)
+// The id may only be one of the registered jobs, so a typo cannot open a gate that was never meant to exist.
+export const JOBS = ["reference-refresh", "source-freshness", "analytics-digest"];
+const jobId = (id) => {
+  if (!JOBS.includes(id)) throw new Error(`unknown job: ${id}`);
+  return id;
+};
+export const gateSql = (id) => `select id from bev_jobs where id = '${jobId(id)}' and enabled`;
+export const jobGate = (name, id, position) => postgres(name, gateSql(id), position);
+// One short line per run. Off like the other writes until the first test run has been seen.
+export const runLogSql = (id) => `insert into bev_job_runs (job_id, ok, rows_written, summary) values ('${jobId(id)}', $1, $2, $3) returning id`;
+export const jobLog = (name, id, position) =>
+  postgres(name, runLogSql(id), position, { replacement: "={{ [true, $input.all().length, 'ran on schedule'] }}", off: true });

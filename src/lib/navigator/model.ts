@@ -5,6 +5,7 @@
  * Every franc figure is an illustrative placeholder, not a quote.
  */
 
+import { WATCH_SEED } from "./watch.ts";
 export type Barrier = "charging" | "cost" | "trips" | "trust" | "unsure";
 export type CarClass = "small" | "compact" | "mid" | "suv" | "van";
 export type Fuel = "petrol" | "diesel" | "hybrid" | "electric";
@@ -208,7 +209,14 @@ export function pumpFor(fuel: Exclude<Fuel, "electric">): number {
   return fuel === "hybrid" ? PUMP.petrol : PUMP[fuel];
 }
 
-export const DATASET = "v-2026-10-03-0004";
+/**
+ * The wording of each dataset row, by key. applyDataset fills it, so a sentence on the page that describes a number always
+ * comes from the same row as the number. Empty until a dataset has been applied; every reader has a plain fallback.
+ */
+export const DATA_NOTES: Record<string, string> = {};
+export const dataNote = (key: string): string => DATA_NOTES[key] ?? "";
+
+export const DATASET = "v-2026-10-03-0005";
 /** Bump when the arithmetic changes, so stored rows from before and after can be told apart. */
 export const MODEL = "2026-10-03-r6";
 
@@ -244,6 +252,22 @@ export const SOURCES = {
     supports: "A new mid-size electric car against a new petrol car, over the whole life. About 55 percent lower greenhouse gases on the Swiss consumer mix, about 65 percent on renewable electricity.",
     notThis: "Not this person’s kilometres, and not the car they already own. Inventories from the Paul Scherrer Institute, 2022.",
     url: "https://www.bafu.admin.ch/dam/de/sd-web/-1KADIYDsYhT/umweltauswirkungen-von-personenwagen-mit-verschiedenen-antriebssystemen.pdf",
+  },
+  "bfe-2020": {
+    title: "Factsheet: environmental impact of passenger cars, today and tomorrow",
+    publisher: "EnergieSchweiz, Swiss Federal Office of Energy",
+    published: "February 2020",
+    supports: "An electric car is built with higher greenhouse-gas emissions. On the Swiss electricity mix, driving makes that up after about 30,000 km.",
+    notThis: "A general figure from 2020 life-cycle work, not this car and not this person's kilometres. Climate only, never in the francs.",
+    url: "https://pubdb.bfe.admin.ch/de/publication/download/9460",
+  },
+  "energieschweiz-oekobilanz": {
+    title: "Electric cars and the life-cycle assessment",
+    publisher: "EnergieSchweiz",
+    published: "undated page",
+    supports: "After about 50,000 km an electric VW ID.3 has caused fewer greenhouse-gas emissions than a petrol VW Golf.",
+    notThis: "One pair of cars, taken from life-cycle assessments the page cites. Not this car. Climate only, never in the francs.",
+    url: "https://www.energieschweiz.ch/programme/fahr-mit-dem-strom/oekobilanz/",
   },
 } as const;
 
@@ -905,10 +929,10 @@ export function evaluate(
   const kmLabel = kmInfo.km.toLocaleString("de-CH");
   const TCS_PUMP = "https://www.tcs.ch/de/camping-reisen/reiseinformationen/wissenswertes/fahrkosten-gebuehren/benzinpreise-schweiz.php";
   const ELCOM_2027 = "https://www.admin.ch/de/newnsb/1miE201yRzoA";
-  const levyLine = "Not in these francs: the Federal Council proposed on 26 September 2025 a levy on electric cars from 2030, either about 5.4 rappen a kilometre or 22.8 rappen a kWh. The consultation closed on 9 January 2026. It is a draft, not law.";
+  const levyLine = `Not in these francs: ${WATCH_SEED.find((w) => w.id === "ev-levy-2030")?.text ?? "a federal levy on electric cars from 2030 is a draft, not law."}`;
   const fuelHow = alreadyElectric
-    ? `${kmLabel} km, this class’s consumption, and ${rate.toFixed(2)} francs a kWh. Home power is the ElCom median for 2027 (26.5 rappen a kWh, published 8 September 2026) unless you picked a place. Work and public prices are illustrative. Consumption is a class placeholder, not your car.`
-    : `Keeping the car: ${kmLabel} km × ${litresPer100.toFixed(1)} litres per 100 km × ${pumpFor(fuel).toFixed(2)} francs a litre. Switching: ${kmLabel} km × ${bev.kwh} kWh per 100 km × ${rate.toFixed(2)} francs a kWh. The litre price is the average of the 23 entries in the TCS table from 1 January to 19 September 2026, each counted from its date to the next (the latest single price, 19 September, is 2.14 for petrol). The kWh price blends home, work and public charging: home is the ElCom median for 2027 unless you picked a place, public is the TCS average for fast charging. Consumption per 100 km is a class placeholder. ${levyLine}`;
+    ? `${kmLabel} km, this class’s consumption, and ${rate.toFixed(2)} francs a kWh. Home power: ${dataNote("rate.home") || "the dataset figure for home electricity."} It is replaced by the ElCom figure if you picked a place. Work and public prices are illustrative. Consumption is a class placeholder, not your car.`
+    : `Keeping the car: ${kmLabel} km × ${litresPer100.toFixed(1)} litres per 100 km × ${pumpFor(fuel).toFixed(2)} francs a litre. Switching: ${kmLabel} km × ${bev.kwh} kWh per 100 km × ${rate.toFixed(2)} francs a kWh. ${dataNote("pump.petrol") || "The litre price is the dataset figure for petrol."} The kWh price blends home, work and public charging: home is the ElCom median for 2027 unless you picked a place, public is the TCS average for fast charging. Consumption per 100 km is a class placeholder. ${levyLine}`;
   const fuelLink = alreadyElectric
     ? { name: "ElCom electricity tariffs 2027, Federal Council, 8 September 2026", href: ELCOM_2027 }
     : { name: "TCS: pump prices in Switzerland, 19 September 2026", href: TCS_PUMP };

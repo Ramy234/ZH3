@@ -4,7 +4,7 @@
  * dataset.test.ts checks that applying the seed changes nothing.
  * The arithmetic stays in model.ts. A dataset row only replaces a number, never a formula.
  */
-import { DATASET, PUMP, RATES, SPECS } from "./model.ts";
+import { DATA_NOTES, DATASET, PUMP, RATES, SPECS } from "./model.ts";
 import type { CarClass, Spec } from "./model.ts";
 
 export type DatasetStatus = "placeholder" | "sourced" | "official" | "live";
@@ -76,6 +76,13 @@ const SOURCED: Record<string, Evidence> = {
     published_on: "2026-09-19",
     source_url: "https://www.tcs.ch/de/camping-reisen/reiseinformationen/wissenswertes/fahrkosten-gebuehren/benzinpreise-schweiz.php",
     note: "Diesel. Derived: the time-weighted average of the 23 entries in the TCS table from 1 Jan to 19 Sep 2026 (261 days), each price counted from its date to the next entry. The latest single price, 19 Sep, is 2.46, the highest of the year; the lowest is 1.73 (3 Feb). Replaced by a federal monthly average if one is wired.",
+  },
+  "rate.travelCard": {
+    status: "sourced",
+    publisher: "Federal Department of Economic Affairs, Education and Research (WBF), Price Supervisor",
+    published_on: "2026-08-04",
+    source_url: "https://www.wbf.admin.ch/de/newnsb/AU8_APWrkLN5RPPMOlCGk",
+    note: "Second-class adult travel card (GA) for a year: 4,095 CHF from 13 Dec 2026, the federal release on the fare measures for December 2026 (100 CHF more instead of the 200 first proposed). Until 12 Dec 2026 it is 3,995 on the SBB page. It is the ceiling for going without a car: a half-fare card with single tickets can cost less if you travel little.",
   },
   "rate.home": {
     status: "sourced",
@@ -164,13 +171,14 @@ function target(key: string): { obj: Record<string, number>; field: string } | n
 }
 
 /** Replace model numbers with dataset values. Unknown keys and non-finite or negative values are ignored. */
-export function applyDataset(rows: Pick<DatasetRow, "key" | "value">[]): number {
+export function applyDataset(rows: (Pick<DatasetRow, "key" | "value"> & { note?: string | null })[]): number {
   let applied = 0;
   for (const row of rows) {
     const t = target(row.key);
     const v = Number(row.value);
     if (!t || !Number.isFinite(v) || v < 0) continue;
     t.obj[t.field] = v;
+    if (typeof row.note === "string" && row.note) DATA_NOTES[row.key] = row.note;
     applied += 1;
   }
   return applied;

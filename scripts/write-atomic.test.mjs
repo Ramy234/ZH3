@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { GROK_ONLY } from "./grok-sandbox.mjs";
 import { spawnSync } from "node:child_process";
 import {
   existsSync,
@@ -164,7 +165,7 @@ test("cli: relative paths follow the script's root, not the caller's cwd", () =>
   assert.equal(existsSync(join(root, "public/og.jpg")), false);
 });
 
-test("every hand-over the og skill prints is one this script accepts", () => {
+test("every hand-over the og skill prints is one this script accepts", GROK_ONLY, () => {
   // The card and banner recipes live in the skill's references/, not SKILL.md.
   const skillDir = join(TEMPLATE_ROOT, ".grok/skills/og");
   const docs = [

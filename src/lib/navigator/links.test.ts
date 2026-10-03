@@ -4,6 +4,7 @@ import { ACTIONS_SEED, NEUTRAL_PUBLISHERS } from "./actions.ts";
 import { FACT_VIEW, FACTS } from "./facts.ts";
 import { WATCH_SEED } from "./watch.ts";
 import { RIGHTS_LINKS } from "./rights.ts";
+import { NOT_DRIVING } from "./not-driving.ts";
 
 // Every outside link the page can show, with where it sits.
 type L = { where: string; href: string; note: string };
@@ -16,6 +17,8 @@ function allLinks(): L[] {
   }
   for (const [k, f] of Object.entries(FACTS)) if (f.url) out.push({ where: `fact ${k} source`, href: f.url, note: "" });
   for (const [k, l] of Object.entries(RIGHTS_LINKS)) out.push({ where: `rights ${k}`, href: l.href, note: l.note });
+  for (const l of NOT_DRIVING.neutral) out.push({ where: "not-driving neutral", href: l.href, note: l.note });
+  for (const l of NOT_DRIVING.providers) out.push({ where: "not-driving provider", href: l.href, note: l.note });
   for (const w of WATCH_SEED) out.push({ where: `watch ${w.id}`, href: w.url, note: "" });
   return out;
 }
@@ -23,9 +26,10 @@ function allLinks(): L[] {
 const HOSTS = [
   "energieschweiz.ch", "tcs.ch", "admin.ch", "elcom.admin.ch", "energiefranken.ch", "iea.org", "bnef.com", "srf.ch", "mozillafoundation.org", "carscoops.com",
   "cnil.fr", "ethique.gouv.qc.ca", "designwerk.com", "mobility.ch", "electrive.com", "zurich.ch", "swiss-emobility.ch", "bfe.admin.ch", "zh.ch", "lu.ch",
+  "beobachter.ch", "moneyland.ch", "mobiliar.ch", "eco-auto.info", "wbf.admin.ch", "sbb.ch",
 ];
 /** A company, not a public body or a test. Its link may only appear when the note says what it is. */
-const COMPANY = ["designwerk.com", "mobility.ch", "zurich.ch", "electrive.com", "bnef.com", "carscoops.com"];
+const COMPANY = ["designwerk.com", "mobility.ch", "zurich.ch", "electrive.com", "bnef.com", "carscoops.com", "beobachter.ch", "moneyland.ch", "mobiliar.ch", "sbb.ch"];
 
 test("links: every link is https and from a host we have looked at", () => {
   for (const l of allLinks()) {
@@ -39,7 +43,7 @@ test("links: a company link says what it is, in the sheet that shows it", () => 
   for (const l of allLinks()) {
     const host = new URL(l.href).hostname;
     if (!COMPANY.some((h) => host === h || host.endsWith(`.${h}`)) || l.note === "") continue;
-    assert.match(l.note, /provider|manufacturer|maker|example|analyst firm|sells|press release|reported|Aviloo/i, `${l.where} ${host}: the note must say what this is`);
+    assert.match(l.note, /provider|manufacturer|maker|example|analyst firm|sells|press release|reported|Aviloo|a company|insurer/i, `${l.where} ${host}: the note must say what this is`);
   }
 });
 
@@ -59,4 +63,12 @@ test("links: Z-Volt is listed as an insurer's own service, among neutral tools, 
   assert.doesNotMatch(z!.note, /CHF|0\.\d\d/);
   const view = FACT_VIEW["public-tariff"];
   assert.ok(view.links!.findIndex((l) => /zurich\.ch/.test(l.href)) > 0, "never listed first");
+});
+
+test("links: the start page's provider list is labelled and holds no price", () => {
+  for (const l of NOT_DRIVING.providers) {
+    assert.match(l.note, /provider/);
+    assert.doesNotMatch(l.note, /CHF|\d{3,}/);
+  }
+  for (const l of NOT_DRIVING.neutral) assert.ok(new URL(l.href).hostname.endsWith("admin.ch"));
 });

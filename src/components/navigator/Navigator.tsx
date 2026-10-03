@@ -45,12 +45,17 @@ import { applyDataset, seedRows, type DatasetRow } from "@/lib/navigator/dataset
 import { numberSheet, type SheetKind } from "@/lib/navigator/numbers";
 import { NumberSheetModal } from "@/components/navigator/numbers-ui";
 import { cleanActions, cleanCohort, cleanVia, type Action, type Via } from "@/lib/navigator/telemetry";
-import { classifyWords, wordsBoxOn } from "@/lib/navigator/words-server";
+import { classifyWords, logWords, wordsBoxOn } from "@/lib/navigator/words-server";
+import { deviceAnswer, type WordsAnswer, type WordsMeta, type WordsOutcome } from "@/lib/navigator/classifier";
 import { ordinaryWeek } from "@/lib/navigator/week";
 import { cardBlob } from "@/lib/navigator/share-card";
+import { localPostcode, POSTCODE_SOURCE } from "@/lib/navigator/postcodes";
+import { twoPaybacks } from "@/lib/navigator/paybacks";
+import { NotDriving } from "@/components/navigator/not-driving";
+import { MethodNote } from "@/components/navigator/method-note";
 import { revisitIcs } from "@/lib/navigator/revisit";
 import { wouldHaveToBeTrue, type Counterfactual, type LeverKey } from "@/lib/navigator/counterfactual";
-import { CANTONS, listFacts, loadDataset, cantonHomeRate, lookupPostcode, officialHomeRate, saveSession, listWatch, listEvents, type OfficialHome, type SessionBag } from "@/lib/navigator/session";
+import { CANTONS, listFacts, loadDataset, cantonHomeRate, forgetSession, lookupMunicipality, officialHomeRate, saveSession, listWatch, listEvents, type OfficialHome, type SessionBag } from "@/lib/navigator/session";
 import {
   BARRIERS,
   CLASSES,
@@ -157,6 +162,9 @@ type Saved = {
   barrierVia?: string | null;
 };
 
+// The seed carries the wording of every row, so a sentence that describes a number is never older than the number.
+applyDataset(seedRows());
+
 export function Navigator() {
   // A new screen always opens at its top. Without this, the result could open with its title scrolled away.
   const scroller = useRef<HTMLDivElement>(null);
@@ -205,13 +213,17 @@ export function Navigator() {
   const [wordsOn, setWordsOn] = useState(false);
   const askWordsFlag = useServerFn(wordsBoxOn);
   const askWords = useServerFn(classifyWords);
+  const reportWords = useServerFn(logWords);
+  const forget = useServerFn(forgetSession);
+  const [forgotten, setForgotten] = useState<"no" | "working" | "done" | "failed">("no");
+  const [hint, setHint] = useState<{ parking?: Parking; tenure?: Tenure }>({});
   useEffect(() => {
     askWordsFlag().then((on) => setWordsOn(Boolean(on))).catch(() => setWordsOn(false));
   }, []);
   const record = (action: Action) => setActions((prev) => (prev.includes(action) ? prev : [...prev, action]));
   const loadOfficial = useServerFn(officialHomeRate);
   const loadCanton = useServerFn(cantonHomeRate);
-  const lookupPlace = useServerFn(lookupPostcode);
+  const lookupMunicipalityPrice = useServerFn(lookupMunicipality);
 
   useEffect(() => {
     try {
@@ -295,6 +307,8 @@ export function Navigator() {
     setCantonState("idle");
     setFromSample(false);
     clearPersonal();
+    setForgotten("no");
+    setSessionId(crypto.randomUUID());
     setStep("barrier");
   }
 
@@ -376,7 +390,12 @@ export function Navigator() {
     setSent("idle");
     setSentStage(null);
     try {
-      const hit = await lookupPlace({ data: plz });
+      const local = await localPostcode(plz);
+      if (!local) {
+        setCantonState("failed");
+        return;
+      }
+      const hit = await lookupMunicipalityPrice({ data: { bfs: local.bfs, canton: local.canton, place: local.place } });
       if (!hit) {
         setCantonState("failed");
         return;
@@ -519,12 +538,12 @@ export function Navigator() {
       : "";
 
   useEffect(() => {
-    if (!autoKey) return;
+    if (!autoKey || forgotten === "done" || forgotten === "working") return;
     const t = window.setTimeout(() => {
       void send("final");
     }, 700);
     return () => window.clearTimeout(t);
-  }, [autoKey]);
+  }, [autoKey, forgotten]);
 
   const [showRail, setShowRail] = useState(false);
   useEffect(() => {
@@ -569,18 +588,20 @@ export function Navigator() {
         value={answers.barrier}
         onPick={(id) => {
           setBarrierVia("tap");
+          setHint({});
           patch({ barrier: id, uses: usesForBarrier(id) }, "parking");
         }}
         wordsBox={
-          wordsOn ? (
-            <WordsBox
-              ask={(words) => askWords({ data: { words } })}
-              onConfirm={(id) => {
-                setBarrierVia("words");
-                patch({ barrier: id, uses: usesForBarrier(id) }, "parking");
-              }}
-            />
-          ) : null
+          <WordsBox
+            aiOn={wordsOn}
+            ask={(words, useAi) => (useAi ? askWords({ data: { words } }) : Promise.resolve(deviceAnswer(words)))}
+            onConfirm={(id, h) => {
+              setBarrierVia("words");
+              setHint({ ...(h.parking ? { parking: h.parking as Parking } : {}), ...(h.tenure ? { tenure: h.tenure as Tenure } : {}) });
+              patch({ barrier: id, uses: usesForBarrier(id) }, "parking");
+            }}
+            onReport={(meta, outcome) => void reportWords({ data: { meta, outcome } }).catch(() => undefined)}
+          />
         }
         onSample={showSample}
         onFact={openFact}
@@ -595,6 +616,7 @@ export function Navigator() {
         hint="This decides whether you could charge at home. After four more taps you get a payback figure: the years until cheaper running covers the extra price of switching."
         options={PARKING}
         value={answers.parking}
+        suggested={hint.parking}
         notes={[
           { optionId: "shared", fact: "tenant-right", label: "What a tenant can ask, today" },
           { optionId: "shared", fact: "mobile-charger", label: "Read about a mobile charger" },
@@ -718,6 +740,14 @@ export function Navigator() {
           URL.revokeObjectURL(url);
         }}
         onSend={() => void send("final")}
+        forgotten={forgotten}
+        onForget={() => {
+          if (!sessionId) return;
+          setForgotten("working");
+          void forget({ data: { clientSession: sessionId } })
+            .then((r) => setForgotten(r.ok ? "done" : "failed"))
+            .catch(() => setForgotten("failed"));
+        }}
         canton={canton}
         cantonState={cantonState}
         onCanton={(code) => void pickCanton(code)}
@@ -733,6 +763,7 @@ export function Navigator() {
         }}
         postcodeSet={postcode != null}
         tenure={tenure}
+        tenureHint={hint.tenure}
         onTenure={(t) => {
           setTenure(t);
           setSent("idle");
@@ -994,7 +1025,7 @@ function BarrierStep({
       <div className="flex flex-1 flex-col px-5 pt-2 pb-6 lg:px-8">
         <h1 className="font-serif text-[1.7rem] leading-tight lg:text-4xl">Would an electric car already work for an ordinary week?</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted">
-          Tap what would still hold you back. Six taps, about a minute, nothing to type. Keeping your car is a perfectly fair result.
+          Tap what would still hold you back. Six taps, about a minute, nothing you have to type. Keeping your car is a perfectly fair result.
         </p>
         <div className="mt-4 flex flex-col gap-2">
           {BARRIERS.map((opt) => (
@@ -1002,6 +1033,7 @@ function BarrierStep({
           ))}
         </div>
         {wordsBox}
+        <NotDriving onShare={shareOrCopy} onFact={onFact} />
         <div className="mt-4 rounded-2xl border border-line bg-card p-4">
           <p className="text-sm font-medium">Not sure where to start?</p>
           <p className="mt-1 text-sm leading-relaxed text-muted">Start from a typical case. It is filled in for you and clearly marked, and you can change any answer.</p>
@@ -1035,39 +1067,61 @@ function BarrierStep({
             </button>{" "}
             <button type="button" onClick={() => onFact("car-data")} className="min-h-11 font-medium text-spruce underline underline-offset-2">
               Does a connected car track me?
+            </button>{" "}
+            <button type="button" onClick={() => onFact("value-loss")} className="min-h-11 font-medium text-spruce underline underline-offset-2">
+              Why does a car lose value?
+            </button>{" "}
+            <button type="button" onClick={() => onFact("leasing")} className="min-h-11 font-medium text-spruce underline underline-offset-2">
+              Leasing instead of buying?
+            </button>{" "}
+            <button type="button" onClick={() => onFact("test-drive")} className="min-h-11 font-medium text-spruce underline underline-offset-2">
+              Try it for 48 hours first?
             </button>
           </p>
         </section>
+        <MethodNote />
       </div>
     </div>
   );
 }
 
-// Optional, off unless the server has WORDS_BOX=on. The words go out once, come back as one category, and are dropped.
+// Optional. The sentence is read on this phone by simple keyword rules. Only if the person ticks the box, and the server has the
+// AI service switched on, it is sent once to be read there. Either way it comes back as one category to confirm and is dropped.
 function WordsBox({
+  aiOn,
   ask,
   onConfirm,
+  onReport,
 }: {
-  ask: (words: string) => Promise<{ barrier?: Barrier | null; error?: true }>;
-  onConfirm: (id: Barrier) => void;
+  aiOn: boolean;
+  ask: (words: string, useAi: boolean) => Promise<WordsAnswer>;
+  onConfirm: (id: Barrier, hints: { parking?: string | null; tenure?: string | null }) => void;
+  onReport: (meta: WordsMeta, outcome: WordsOutcome) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
+  const [useAi, setUseAi] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [suggest, setSuggest] = useState<{ barrier: Barrier | null } | "failed" | "declined" | null>(null);
+  const [got, setGot] = useState<Extract<WordsAnswer, { ok: true }> | "failed" | "declined" | null>(null);
 
   async function send() {
     setBusy(true);
+    let out: WordsAnswer;
     try {
-      const out = await ask(text);
-      setSuggest("error" in out && out.error ? "failed" : { barrier: out.barrier ?? null });
+      out = await ask(text, useAi && aiOn);
+      if ("error" in out && useAi) out = deviceAnswer(text);
     } catch {
-      setSuggest("failed");
-    } finally {
-      setText("");
-      setBusy(false);
+      out = deviceAnswer(text);
     }
+    setGot("ok" in out ? out : "failed");
+    setText("");
+    setBusy(false);
   }
+  const decide = (ans: Extract<WordsAnswer, { ok: true }>, outcome: WordsOutcome, id?: Barrier) => {
+    onReport(ans.meta, outcome);
+    if (id) onConfirm(id, { parking: ans.parking, tenure: ans.tenure });
+    else setGot("declined");
+  };
 
   if (!open) {
     return (
@@ -1078,7 +1132,7 @@ function WordsBox({
   }
   return (
     <div className="mt-3 rounded-2xl border border-line bg-card p-4">
-      {suggest === null ? (
+      {got === null ? (
         <>
           <label htmlFor="own-words" className="text-sm font-medium">
             What would still stop you?
@@ -1091,30 +1145,51 @@ function WordsBox({
             rows={3}
             className="mt-2 w-full rounded-xl border border-line bg-sheet px-3 py-2 text-base"
           />
-          <p className="mt-1 text-xs leading-snug text-muted">Your words go to an AI service to pick a category, then are dropped. No names or addresses, please.</p>
+          <p className="mt-1 text-xs leading-snug text-muted">
+            One sentence, no names or addresses. It is read on this phone by simple keyword rules, then dropped. Nothing is saved; we only count whether the suggestion was right.
+          </p>
+          {aiOn ? (
+            <label className="mt-2 flex min-h-11 items-start gap-2 text-xs leading-snug text-muted">
+              <input type="checkbox" checked={useAi} onChange={(e) => setUseAi(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0" />
+              <span>Also let an AI service read it, for a better guess. It runs in the United States, does not learn from it, and the sentence is not kept here.</span>
+            </label>
+          ) : null}
           <button
             type="button"
             onClick={() => void send()}
             disabled={busy || text.trim().length < 3}
             className="mt-3 min-h-11 rounded-full bg-spruce px-5 text-sm font-medium text-spruce-ink disabled:opacity-50"
           >
-            {busy ? "Picking" : "Pick a category"}
+            {busy ? "Reading" : "Suggest a category"}
           </button>
         </>
-      ) : suggest === "failed" || suggest === "declined" || suggest.barrier == null ? (
+      ) : got === "failed" || got === "declined" || got.barrier == null || got.band === "ask" ? (
         <p className="text-sm leading-snug">
-          {suggest === "failed" ? "That did not work." : suggest === "declined" ? "Okay." : "I could not tell."} Please tap one of the options above.
+          {got === "failed" ? "That did not work." : got === "declined" ? "Okay." : "I could not tell for sure."} Please tap one of the options above.
+          {typeof got === "object" && got.personal ? " It looked like it had personal details. They were not kept." : ""}
         </p>
       ) : (
         <>
           <p className="text-sm leading-snug">
-            That sounds like <span className="font-medium">“{labelBarrier(suggest.barrier)}”</span>. Is that right?
+            That sounds like <span className="font-medium">“{labelBarrier(got.barrier)}”</span>
+            {got.alt ? (
+              <>
+                , or maybe <span className="font-medium">“{labelBarrier(got.alt)}”</span>
+              </>
+            ) : null}
+            . Is that right?
           </p>
+          {got.personal ? <p className="mt-1 text-xs leading-snug text-muted">It looked like it had personal details. They were not kept.</p> : null}
           <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" onClick={() => onConfirm(suggest.barrier as Barrier)} className="min-h-11 rounded-full bg-spruce px-5 text-sm font-medium text-spruce-ink">
+            <button type="button" onClick={() => decide(got, "yes", got.barrier as Barrier)} className="min-h-11 rounded-full bg-spruce px-5 text-sm font-medium text-spruce-ink">
               Yes, that is it
             </button>
-            <button type="button" onClick={() => setSuggest("declined")} className="min-h-11 rounded-full border border-line px-5 text-sm font-medium">
+            {got.alt ? (
+              <button type="button" onClick={() => decide(got, "alt", got.alt as Barrier)} className="min-h-11 rounded-full border border-spruce px-5 text-sm font-medium text-spruce">
+                Rather “{labelBarrier(got.alt)}”
+              </button>
+            ) : null}
+            <button type="button" onClick={() => decide(got, "no")} className="min-h-11 rounded-full border border-line px-5 text-sm font-medium">
               No, I will tap
             </button>
           </div>
@@ -1301,11 +1376,13 @@ function Single({
   onBack,
   recap,
   more,
+  suggested,
 }: {
   step: Step;
   title: string;
   hint: string;
   more?: string;
+  suggested?: string;
   recap?: ReactNode;
   options: { id: string; title: string; detail?: string }[];
   value: string | null;
@@ -1332,7 +1409,7 @@ function Single({
             const matched = notes?.filter((n) => n.optionId === opt.id) ?? [];
             return (
               <div key={opt.id}>
-                <Choice icon={step === "km" && opt.id === "mid" ? "mid_km" : step === "km" || step === "class" || step === "fuel" || step === "parking" ? opt.id : undefined} title={opt.title} detail={opt.detail} selected={value === opt.id} onClick={() => onPick(opt.id)} />
+                <Choice icon={step === "km" && opt.id === "mid" ? "mid_km" : step === "km" || step === "class" || step === "fuel" || step === "parking" ? opt.id : undefined} title={opt.title} detail={opt.detail} tag={suggested === opt.id && value !== opt.id ? "From your sentence. Tap to confirm." : undefined} selected={value === opt.id} onClick={() => onPick(opt.id)} />
                 {matched.map((note) =>
                   onFact ? <NoteButton key={note.fact} label={note.label} onClick={() => onFact(note.fact)} /> : null,
                 )}
@@ -1380,12 +1457,14 @@ function Choice({
   selected,
   onClick,
   icon,
+  tag,
 }: {
   title: string;
   detail?: string;
   selected: boolean;
   onClick: () => void;
   icon?: string;
+  tag?: string;
 }) {
   const Icon = icon ? CHOICE_ICON[icon] : undefined;
   return (
@@ -1405,6 +1484,7 @@ function Choice({
       <span className="min-w-0 flex-1">
         <span className="block text-base font-medium">{title}</span>
         {detail ? <span className={`mt-0.5 block text-sm leading-snug ${selected ? "text-spruce-ink/85" : "text-muted"}`}>{detail}</span> : null}
+        {tag ? <span className="mt-1 block text-xs font-medium text-spruce">{tag}</span> : null}
       </span>
       {selected ? <Check className="h-5 w-5 shrink-0 text-volt" aria-hidden /> : null}
     </button>
@@ -1556,6 +1636,8 @@ function ResultView({
   onFact,
   onUse,
   onSend,
+  forgotten,
+  onForget,
   onGap,
   gap,
   sent,
@@ -1570,6 +1652,7 @@ function ResultView({
   onSettlement,
   postcodeSet,
   tenure,
+  tenureHint,
   onTenure,
   onLoadEvents,
   watch,
@@ -1609,6 +1692,8 @@ function ResultView({
   onFact: (fact: FactKey) => void;
   onUse: (id: UseId) => void;
   onSend: () => void;
+  forgotten: "no" | "working" | "done" | "failed";
+  onForget: () => void;
   onGap: (id: Gap) => void;
   gap: Gap | null;
   canton: string | null;
@@ -1621,6 +1706,7 @@ function ResultView({
   onSettlement: (v: "city" | "town" | "rural" | null) => void;
   postcodeSet: boolean;
   tenure: Tenure | null;
+  tenureHint?: Tenure;
   onTenure: (t: Tenure | null) => void;
   onLoadEvents: () => Promise<import("@/lib/navigator/session").PublicEvent[]>;
 }) {
@@ -1934,11 +2020,14 @@ function ResultView({
           </div>
           <button
             type="button"
-            onClick={() => openPanel("sources", "climate")}
+            onClick={() => openPanel("climate", "explore")}
             className="mt-3 flex min-h-14 w-full flex-col items-start justify-center rounded-2xl border border-line bg-sheet px-4 py-2 text-left"
           >
-            <span className="text-sm font-medium text-spruce">Climate, beside the money</span>
-            <span className="text-xs leading-snug text-muted">By distance driven, from the federal study. Never in the francs.</span>
+            <span className="text-sm font-medium text-spruce">Two paybacks: money in years, climate in kilometres</span>
+            <span className="text-xs leading-snug text-muted">{(() => {
+              const t = twoPaybacks({ cash: result.cash, saving: result.saving, km: result.km, horizon: result.series.length - 1, alreadyElectric: result.answers.fuel === "electric" });
+              return t.climateYears ? `Climate: about ${t.climateYears[0]} to ${t.climateYears[1]} years of driving at your distance. Never in the francs.` : "Climate, by distance driven, from the federal study. Never in the francs.";
+            })()}</span>
           </button>
           <p className="mt-3 text-sm leading-relaxed">
             <span className="font-medium">{paybackTitle(result)}.</span>{" "}
@@ -2037,7 +2126,7 @@ function ResultView({
           postcodeSet={postcodeSet}
         />
 
-        <RightsCard rows={rights} tenure={tenure} onTenure={onTenure} />
+        <RightsCard rows={rights} tenure={tenure} onTenure={onTenure} hint={tenureHint} />
 
         <ChargeCheck
           setup={chargeSetup}
@@ -2070,6 +2159,12 @@ function ResultView({
           </div>
         </section>
             </>
+          ) : null}
+          {panel === "climate" ? (
+            <div id="climate" className="scroll-mt-4 flex flex-col gap-4">
+              <TwoPaybacksCard result={result} onFact={onFact} onSource={() => openPanel("sources", "how-payback")} />
+              <ClimateLine alreadyElectric={result.answers.fuel === "electric"} km={result.answers.km} />
+            </div>
           ) : null}
           {panel === "sources" ? (
             <>
@@ -2167,9 +2262,6 @@ function ResultView({
           ) : null}
         </section>
 
-              <div id="climate" className="scroll-mt-4">
-                <ClimateLine alreadyElectric={result.answers.fuel === "electric"} km={result.answers.km} />
-              </div>
         <section>
           <h2 className="font-medium">Did something not make sense?</h2>
           <p className="mt-1 text-sm leading-relaxed text-muted">
@@ -2285,7 +2377,9 @@ function ResultView({
               ? "Updating the stored plan…"
               : sent === "failed"
                 ? "Not stored. The plan below is still the current case."
-                : "Stored, as bands. It follows every change on this page. No name, no sentence."}
+                : forgotten === "done"
+                  ? "Deleted. Nothing about this visit is stored any more, and nothing will be until you start again."
+                  : "Stored, as bands. It follows every change on this page. No name, no sentence."}
           </p>
           <pre tabIndex={0} aria-label="The plan as text, scrollable" className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap [overflow-wrap:anywhere] rounded-2xl bg-sheet p-3 text-sm leading-relaxed">{planText(result)}</pre>
           <div className="mt-4 flex flex-col gap-2">
@@ -2301,6 +2395,10 @@ function ResultView({
             <button type="button" onClick={onCopy} className="h-12 rounded-full border border-line bg-sheet font-medium">
               {copied ? "Copied" : "Copy the plan as text"}
             </button>
+            <button type="button" onClick={onForget} disabled={forgotten === "working" || forgotten === "done"} className="h-12 rounded-full border border-line bg-sheet font-medium disabled:opacity-50">
+              {forgotten === "working" ? "Deleting" : forgotten === "done" ? "Deleted" : "Delete what is stored about this visit"}
+            </button>
+            {forgotten === "failed" ? <p role="status" className="text-sm text-muted">That did not work. Try again in a moment.</p> : null}
           </div>
         </section>
           </div>
@@ -2312,7 +2410,7 @@ function ResultView({
         </div>
 
         <p className="text-xs leading-relaxed text-muted">
-          Indicative only. Not financial, insurance, tax, or purchase advice. Electricity, vehicle prices, tax, and rental days are labelled placeholders, not live Swiss tariffs or a dealer offer. The climate view is the federal study's finding by distance driven. It is not calculated for this case, and it does not change the payback. Winter range and data-security comparisons are not calculated here.
+          Indicative only. Not financial, insurance, tax or purchase advice. Prices marked as placeholders are not live tariffs or a dealer offer. Climate, winter range and data security are not in the francs and are not calculated for your car.
         </p>
 
         <button type="button" onClick={onReset} className="flex h-11 items-center justify-center gap-2 text-sm font-medium text-muted">
@@ -2348,6 +2446,7 @@ const PANELS: PanelDef[] = [
   { id: "whatif", label: "What if" },
   { id: "week", label: "My week" },
   { id: "place", label: "My place" },
+  { id: "climate", label: "Climate" },
   { id: "sources", label: "Sources" },
 ];
 
@@ -2374,14 +2473,79 @@ function printDossier() {
   window.setTimeout(() => window.print(), 60);
 }
 
+function TwoPaybacksCard({ result, onFact, onSource }: { result: Result; onFact: (fact: FactKey) => void; onSource: () => void }) {
+  const horizon = result.series.length - 1;
+  const t = twoPaybacks({ cash: result.cash, saving: result.saving, km: result.km, horizon, alreadyElectric: result.answers.fuel === "electric" });
+  const lo = SOURCES["bfe-2020"];
+  const hi = SOURCES["energieschweiz-oekobilanz"];
+  return (
+    <section className="rounded-2xl border border-line bg-card p-4" aria-labelledby="two-paybacks-title">
+      <h2 id="two-paybacks-title" className="font-medium">
+        Two paybacks, two units
+      </h2>
+      <p className="mt-1 text-sm leading-relaxed text-muted">Money pays back in years of owning the car. The climate pays back in kilometres driven. They are different questions, and neither is in the other.</p>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-xl bg-sheet p-3">
+          <p className="text-xs font-medium tracking-widest text-muted uppercase">Money</p>
+          <p className="font-serif mt-1 text-xl leading-snug">{paybackTitle(result)}</p>
+          <p className="mt-1 text-sm leading-relaxed text-muted">
+            {t.monthlyExtra != null && t.monthlyGain != null
+              ? `Spread over the ${horizon} years, the extra price is about ${chf(t.monthlyExtra)} a month, before interest. Cheaper running gives back about ${chf(t.monthlyGain)} a month. When the second is bigger, the switch pays for itself inside the picture.`
+              : t.monthlyExtra != null
+                ? `Spread over the ${horizon} years, the extra price is about ${chf(t.monthlyExtra)} a month, before interest. On these figures running does not cost less, so nothing gives it back.`
+                : "On these figures there is no extra price to cover."}
+          </p>
+        </div>
+        <div className="rounded-xl bg-sheet p-3">
+          <p className="text-xs font-medium tracking-widest text-muted uppercase">Climate</p>
+          {t.climateYears ? (
+            <>
+              <p className="font-serif mt-1 text-xl leading-snug">
+                About {t.climateYears[0]} to {t.climateYears[1]} years of driving
+              </p>
+              <p className="mt-1 text-sm leading-relaxed text-muted">
+                An electric car is built with more emissions, mostly the battery. Driving makes that up after about 30,000 km in one federal factsheet and about 50,000 km for one pair of cars in another. At your {result.km.toLocaleString("de-CH")} km a year, that is the range shown.
+              </p>
+            </>
+          ) : (
+            <p className="mt-1 text-sm leading-relaxed text-muted">
+              {result.answers.fuel === "electric" ? "You already drive electric, so that production is already behind you." : "Not shown: the distance is too low or unknown to say."}
+            </p>
+          )}
+        </div>
+      </div>
+      <p className="mt-3 text-xs leading-relaxed text-muted">
+        Studies, cars and electricity mixes give different distances, and this is not calculated for your car. It never changes the francs, and there is no personal figure in kilograms.{" "}
+        <a className="font-medium text-spruce underline" href={lo.url} target="_blank" rel="noopener noreferrer">{lo.publisher}, {lo.published}</a>
+        {" · "}
+        <a className="font-medium text-spruce underline" href={hi.url} target="_blank" rel="noopener noreferrer">EnergieSchweiz, life-cycle page</a>
+      </p>
+      <details className="mt-2 text-sm">
+        <summary className="min-h-11 cursor-pointer py-2 font-medium text-spruce">A company writes a car off. Why not you?</summary>
+        <p className="leading-relaxed text-muted">
+          A company spreads the price of a car over a few years as a yearly cost, because that is how its accounts work. A household pays the price, or a loan, and later gets back what the car sells for. What it loses is the difference, the value loss, and it is the biggest cost of a car. So this check asks how long cheaper running takes to cover the extra price, and what happens if you sell sooner.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => onFact("value-loss")} className="min-h-11 rounded-full border border-spruce px-4 text-sm font-medium text-spruce">
+            What value loss means
+          </button>
+          <button type="button" onClick={onSource} className="min-h-11 rounded-full border border-line px-4 text-sm font-medium">
+            The payback sum, step by step
+          </button>
+        </div>
+      </details>
+    </section>
+  );
+}
+
 function ClimateLine({ alreadyElectric, km }: { alreadyElectric: boolean; km: KmBand | null }) {
   const src = SOURCES["bfe-2025"];
   // The federal study's three zones on one yearly-distance scale. The person's own band is lit. No francs, no personal kilograms.
   const MAX = 24000;
   const zones = [
-    { from: 0, to: 4500, label: "Usually not worth it", fill: "bg-line" },
-    { from: 4500, to: 8000, label: "Depends on the car", fill: "bg-amber" },
-    { from: 8000, to: MAX, label: "Almost always worth it", fill: "bg-moss" },
+    { from: 0, to: 4500, label: "Under about 4,000 to 5,000: usually not worth it", fill: "bg-line" },
+    { from: 4500, to: 8000, label: "In between: depends on the car", fill: "bg-amber" },
+    { from: 8000, to: MAX, label: "From about 8,000: almost always worth it", fill: "bg-moss" },
   ];
   const band = km === "lt10" ? [0, 10000] : km === "mid" ? [10000, 20000] : km === "gt20" ? [20000, MAX] : null;
   const pct = (n: number) => `${(n / MAX) * 100}%`;
@@ -2395,7 +2559,7 @@ function ClimateLine({ alreadyElectric, km }: { alreadyElectric: boolean; km: Km
     <section className="rounded-2xl border border-line bg-card p-4">
       <h2 className="font-medium">Climate, beside the money</h2>
       <p className="mt-1 text-sm leading-relaxed text-muted">A separate question from the francs. It never changes the payback. This is what the federal study found for a switch, by distance driven.</p>
-      <div className="mt-4" role="img" aria-label={`Yearly distance from 0 to 24,000 km. Under 4,500 usually not worth it for the climate, 4,500 to 8,000 depends on the car, over 8,000 almost always worth it.${band ? " Your distance band is marked." : ""}`}>
+      <div className="mt-4" role="img" aria-label={`Yearly distance from 0 to 24,000 km. Under about 4,000 to 5,000 usually not worth it for the climate, in between depends on the car, from about 8,000 almost always worth it.${band ? " Your distance band is marked." : ""}`}>
         <div className="relative h-8 overflow-hidden rounded-full">
           {zones.map((z) => (
             <span key={z.label} className={`absolute top-0 h-8 ${z.fill}`} style={{ left: pct(z.from), width: pct(z.to - z.from) }} />
@@ -2976,6 +3140,10 @@ function LocalPerson({
         <p className="leading-relaxed">
           A postcode is stored apart from your answers, so we can count where information is missing. We ask for no name and no address, and nobody can look you up from it. It is deleted automatically after twelve months. Anything shown to others covers at least ten people.
         </p>
+        <p className="leading-relaxed">
+          The postcode is matched to its municipality on your device, with the official list of the Federal Office of Topography ({POSTCODE_SOURCE.credit},{" "}
+          <a className="font-medium text-spruce underline" href={POSTCODE_SOURCE.url} target="_blank" rel="noopener noreferrer">{POSTCODE_SOURCE.title}</a>). Only the municipality number is sent to read its electricity price. A postcode can cover more than one municipality; the one with most addresses is used.
+        </p>
       </details>
 
       <div className="mt-3 flex flex-col gap-2">
@@ -3269,6 +3437,18 @@ const FOLLOW: Record<FactKey, { prompt: string; chips: { label: string; detail?:
   },
   "car-data": {
     prompt: "This sheet changes no answer. The message to ask the maker is in “Your next move” when trust is what holds you back.",
+    chips: [],
+  },
+  "value-loss": {
+    prompt: "Your result already counts the sale price at the end. Open “What if” to see what a few thousand francs more or less would do.",
+    chips: [],
+  },
+  leasing: {
+    prompt: "This check prices no lease. If you are offered one, the questions above are the ones to get answered in writing.",
+    chips: [],
+  },
+  "test-drive": {
+    prompt: "This sheet changes no answer. If you can try the car for two days, your charging check on the result is the list of what to try.",
     chips: [],
   },
 };

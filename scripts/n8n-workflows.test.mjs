@@ -2,7 +2,7 @@
 // The Code nodes run here exactly as written in n8n/src; the SQL runs in PGlite.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { ENUMS, CANTONS } from "../n8n/lib/enums.mjs";
 import { wf as w1, INSERT_SQL as W1_INSERT } from "../n8n/build-w1.mjs";
@@ -10,6 +10,8 @@ import { wf as w3, INSERT_SQL as W3_INSERT } from "../n8n/build-w3.mjs";
 import { wf as w4, URLS_SQL, PREVIOUS_SQL, INSERT_SQL as W4_INSERT } from "../n8n/build-w4.mjs";
 import { wf as w5 } from "../n8n/build-w5.mjs";
 import { wf as w6 } from "../n8n/build-w6.mjs";
+import { wf as w7 } from "../n8n/build-w7.mjs";
+import { wf as w8 } from "../n8n/build-w8.mjs";
 import { evaluate as evalWords } from "./words-eval.mjs";
 import { DIGEST_SQL } from "../n8n/lib/w5-sql.mjs";
 
@@ -27,7 +29,7 @@ function run(source, input = [{}], refs = {}) {
   return new Function("$input", "$", `return (function(){${source}})()`)($input, $).map((i) => i.json);
 }
 
-const MIGRATIONS = ["0002_bev.sql", "0008_row_level_security.sql", "0009_bev_dataset.sql", "0012_reference_sources_flat.sql", "0013_reference_sources_test.sql"];
+const MIGRATIONS = readdirSync(new URL("../migrations/", import.meta.url)).filter((f) => f.endsWith(".sql")).sort();
 async function database() {
   const db = new PGlite();
   for (const f of MIGRATIONS) await db.exec(read(`migrations/${f}`));
@@ -54,7 +56,7 @@ test("canton order matches the app's BFS numbers", () => {
 });
 
 test("every workflow: inactive, unique names, valid wiring, one credential, no secret text, writes off", () => {
-  for (const wf of [w1, w3, w4, w5, w6]) {
+  for (const wf of [w1, w3, w4, w5, w6, w7, w8]) {
     assert.equal(wf.active, false, wf.name);
     assert.equal(wf.settings.saveDataSuccessExecution, "none", wf.name);
     const names = wf.nodes.map((n) => n.name);
@@ -83,6 +85,10 @@ test("W1: junk is dropped, the row lands, and the flat view reads it as columns"
   assert.equal(row.payload.cohort, "i3");
   assert.deepEqual(row.payload.actions, ["share", "fold_why"]);
   assert.equal(row.payload.barrierVia, "tap");
+  assert.deepEqual(row.payload.gapCodes, ["H2.2"], "only codes from the closed list pass");
+  assert.deepEqual(row.payload.chargeSetup, { main: "maybe", backup: "no", standing: "yes", level: "test" });
+  assert.deepEqual(row.payload.nextMove, { shown: "test-charging-week", outcomes: ["test-charging-week.done"] });
+  assert.deepEqual(row.payload.location, { canton: "ZH", settlement: "city", tenure: "rent", plz2: null });
   const db = await database();
   await db.query(W1_INSERT, [row.clientSession, row.stage, JSON.stringify(row.payload)]);
   await db.exec("insert into bev_sessions select * from bev_sessions_test");
@@ -126,11 +132,12 @@ test("W5: the digest hides cells under 5 and counts the ending from paybackYears
   let n = 0;
   const add = async (barrier, payback, extra = {}, sample = false, stage = "final") => {
     n += 1;
-    const payload = { stage, fromSample: sample, claimsOpened: extra.facts ?? [], cohort: extra.cohort ?? null, actions: extra.actions ?? [], answers: { barrier, unclear: extra.unclear ?? null, keepYears: extra.keepYears ?? null }, nodes: [price(payback)] };
+    const payload = { stage, fromSample: sample, gapCodes: extra.gaps ?? [], nextMove: { shown: null, outcomes: extra.outcomes ?? [] }, claimsOpened: extra.facts ?? [], cohort: extra.cohort ?? null, actions: extra.actions ?? [], answers: { barrier, unclear: extra.unclear ?? null, keepYears: extra.keepYears ?? null }, nodes: [price(payback)] };
     await db.query("insert into bev_sessions (id, client_session, stage, payload) values ($1, $2, $3, $4)", [`id${n}`, `cs${n}`, stage, JSON.stringify(payload)]);
   };
-  for (let i = 0; i < 5; i++) await add("charging", 6, { facts: ["battery"], unclear: "payback", cohort: "i1", actions: ["share", "fold_why"] });
+  for (let i = 0; i < 5; i++) await add("charging", 6, { facts: ["battery"], unclear: "payback", cohort: "i1", actions: ["share", "fold_why"], gaps: ["H2.2", "H3.1"], outcomes: ["settle-charging.done"] });
   for (let i = 0; i < 5; i++) await add("charging", 12);
+  await add("trust", 12, { gaps: ["H5.5"] });
   for (let i = 0; i < 4; i++) await add("cost", null);
   await add("trips", 3, {}, true);
   await add("trips", 3, {}, false, "mid");
@@ -143,6 +150,9 @@ test("W5: the digest hides cells under 5 and counts the ending from paybackYears
   assert.match(out.text, /battery: 5/);
   assert.match(out.text, /share: 5/);
   assert.match(out.text, /i1: 5/);
+  assert.match(out.text, /H2\.2: 5/);
+  assert.doesNotMatch(out.text, /H5\.5/, "a gap held by fewer than 5 people is not listed");
+  assert.match(out.text, /settle-charging\.done: 5/);
   assert.equal(out.hidden > 0, true);
   assert.doesNotMatch(out.text, /cs\d|id\d/);
 });
@@ -251,6 +261,8 @@ test("the checked-in JSON files are what the builders produce", () => {
   same("w4-source-freshness.workflow.json", w4);
   same("w5-analytics-digest.workflow.json", w5);
   same("w6-words-classifier.workflow.json", w6);
+  same("w7-words-classifier-jev.workflow.json", w7);
+  same("w8-picture-test-jev.workflow.json", w8);
 });
 
 test("W6: text in, one closed name out, no text anywhere, AI step off and falling back to rules", async () => {
@@ -295,4 +307,82 @@ test("W6 evaluation: the rules stay above the floor on the fixed set", async () 
   const r = await evalWords(async (w) => run1(w));
   assert.ok(r.accuracy >= 0.8, `accuracy ${r.accuracy}`);
   assert.ok(r.sureAccuracy >= 0.95, `confident accuracy ${r.sureAccuracy}`);
+});
+
+test("jobs: every schedule goes through a switch that reads bev_jobs, and every job starts off", async () => {
+  const { gateSql, runLogSql, JOBS } = await import("../n8n/lib/kit.mjs");
+  const db = new PGlite();
+  await db.exec(read("migrations/0026_classifier_log_and_jobs.sql"));
+  const rows = (await db.query("select id, enabled from bev_jobs order by id")).rows;
+  assert.deepEqual(rows.map((r) => r.id), [...JOBS].sort());
+  assert.ok(rows.every((r) => r.enabled === false), "all jobs are registered switched off");
+  for (const id of JOBS) assert.equal((await db.query(gateSql(id))).rows.length, 0, `${id}: the gate stops a run while the job is off`);
+  await db.exec("update bev_jobs set enabled = true where id = 'source-freshness'");
+  assert.equal((await db.query(gateSql("source-freshness"))).rows.length, 1);
+  assert.equal((await db.query(gateSql("analytics-digest"))).rows.length, 0, "switching one job on leaves the others off");
+  await db.query(runLogSql("source-freshness").replace("$1", "true").replace("$2", "3").replace("$3", "'ran on schedule'"));
+  const status = (await db.query("select id, last_ok, last_summary from bev_job_status where id = 'source-freshness'")).rows[0];
+  assert.equal(status.last_ok, true);
+  assert.throws(() => gateSql("made-up-job"), /unknown job/);
+
+  const byJob = { W3: [w3, "reference-refresh"], W4: [w4, "source-freshness"], W5: [w5, "analytics-digest"] };
+  for (const [label, [wf, id]] of Object.entries(byJob)) {
+    const gates = wf.nodes.filter((n) => n.parameters.query === gateSql(id));
+    assert.ok(gates.length >= 1, `${label} has a switch`);
+    for (const sched of wf.nodes.filter((n) => n.type.endsWith("scheduleTrigger"))) {
+      const next = wf.connections[sched.name].main.flat().map((t) => t.node);
+      assert.ok(next.length > 0 && next.every((n) => gates.some((g) => g.name === n)), `${label}: ${sched.name} must lead only into a switch`);
+    }
+    const manual = wf.nodes.find((n) => n.type.endsWith("manualTrigger"));
+    const manualNext = wf.connections[manual.name].main.flat().map((t) => t.node);
+    assert.ok(!manualNext.some((n) => gates.some((g) => g.name === n)), `${label}: running by hand skips the switch`);
+    const log = wf.nodes.find((n) => n.parameters.query === runLogSql(id));
+    assert.ok(log && log.disabled === true, `${label}: the run log exists and starts off`);
+  }
+});
+
+test("W1: its stored payload has the same top-level keys as the app's own, and enum lists match the app's", async () => {
+  // The keys saveSession writes (read from its source) minus the two nodes W1 fills in later (price, solutions are inside "nodes").
+  const session = read("src/lib/navigator/session.ts");
+  const start = session.indexOf("const payload = {");
+  const block = session.slice(start, session.indexOf("const sql = await getSql();", start));
+  const appKeys = [...block.matchAll(/^      (\w+)[:,]/gm)].map((m) => m[1]).sort();
+  const sample = run(src("w1-sample-session.js"))[0];
+  const [row] = run(src("switch-toggles.js"), run(src("code-price.js"), run(src("w1-typesafe-choice.js"), [sample])));
+  assert.deepEqual(Object.keys(row.payload).sort(), appKeys, "W1 and saveSession must store the same fields");
+  const { GAP_CODE_LIST } = await import("../src/lib/navigator/gapcodes.ts");
+  const { ACTION_IDS, OUTCOME_KEYS } = await import("../src/lib/navigator/actions.ts");
+  const { CHARGE_MAIN, CHARGE_BACKUP, CHARGE_STANDING } = await import("../src/lib/navigator/charging.ts");
+  assert.deepEqual(ENUMS.gapCode, [...GAP_CODE_LIST]);
+  assert.deepEqual(ENUMS.move, [...ACTION_IDS]);
+  assert.deepEqual(ENUMS.outcome, [...new Set(OUTCOME_KEYS.map((k) => k.split(".")[1]))]);
+  assert.deepEqual([ENUMS.chargeMain, ENUMS.chargeBackup, ENUMS.chargeStanding], [[...CHARGE_MAIN], [...CHARGE_BACKUP], [...CHARGE_STANDING]]);
+  const oneOf = session.match(/const ONE_OF = \{([\s\S]*?)\n\} as const;/)[1];
+  for (const k of ["settlement", "tenure"]) assert.deepEqual(JSON.parse(oneOf.match(new RegExp(`${k}: (\\[.*?\\])`))[1]), ENUMS[k]);
+});
+
+test("W8: the picture bench is hand-run, writes nothing, starts with both outside steps off, and refuses unsafe links", async () => {
+  const { wf: w8 } = await import("../n8n/build-w8.mjs");
+  assert.equal(w8.active, false);
+  assert.ok(!w8.nodes.some((n) => n.type.endsWith("postgres") || n.type.endsWith("scheduleTrigger") || n.type.endsWith("webhook")), "no database, schedule or public entry");
+  for (const n of w8.nodes.filter((x) => x.type.endsWith("httpRequest"))) assert.equal(n.disabled, true, n.name);
+  assert.equal(w8.settings.saveManualExecutions, false);
+  assert.doesNotMatch(src("w8-read-first.md"), /use the slides|copy the deck/i);
+  assert.match(src("w8-read-first.md"), /Restricted/);
+  // Pick pictures: an empty list stops with a message; unsafe links never pass.
+  assert.throws(() => run(src("w8-pick.js")), /Add at least one/);
+  const pick = (list) => run(src("w8-pick.js").replace(/const LIST = \[[\s\S]*?\n\];/, `const LIST = ${JSON.stringify(list)};`));
+  const good = pick([{ url: "https://example.org/a.jpg", expect: "shared_garage" }, { url: "http://example.org/b.jpg" }, { url: "https://localhost/c.png" }, { url: "https://192.168.1.4/d.png" }, { url: "https://example.org/e.pdf" }, { url: "https://u:p@example.org/f.jpg" }, { url: "https://example.org/g.png", expect: "made-up" }]);
+  assert.deepEqual(good.map((g) => g.url), ["https://example.org/a.jpg", "https://example.org/g.png"]);
+  assert.equal(good[1].expect, null, "a label outside the closed list is dropped");
+  // Build + Tally with a stubbed Jev answer.
+  const [b] = run(src("w8-build.js"), [{ content: [{ text: "A shared underground garage with many bays. See https://x.example/secret" }] }], { "Pick pictures": [{ url: "https://example.org/a.jpg", expect: "shared_garage" }] });
+  assert.doesNotMatch(b.request.state, /https?:|secret/);
+  assert.deepEqual(Object.keys(b.request.questions), ["scene"]);
+  assert.ok(b.request.questions.scene.criteria.not_a_parking_scene, "the closed list has a way out");
+  const [tally] = run(src("w8-decide.js"), [{ answers: { scene: { type: "choice", choice: "shared_garage", confidence: 0.8 } } }, { answers: { scene: { type: "choice", choice: "made_up", confidence: 0.9 } } }], { "Build request": [{ expect: "shared_garage" }, { expect: "own_wallbox" }] });
+  assert.equal(tally.pictures, 2);
+  assert.equal(tally.answered, 1, "an answer outside the closed list counts as none");
+  assert.equal(tally.agreeWithYourLabel, 1);
+  assert.doesNotMatch(JSON.stringify(tally), /https?:/);
 });

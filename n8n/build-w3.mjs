@@ -2,7 +2,7 @@
 //   node n8n/build-w3.mjs
 //   BEV_REFERENCE_TABLE=bev_reference node n8n/build-w3.mjs   only after a test insert succeeded
 import { writeFileSync } from "node:fs";
-import { code, node, note, postgres, src, pickTable, workflow } from "./lib/kit.mjs";
+import { code, jobGate, jobLog, node, note, postgres, src, pickTable, workflow } from "./lib/kit.mjs";
 
 export const TABLE = pickTable(process.env.BEV_REFERENCE_TABLE, "bev_reference", "bev_reference_test");
 export const INSERT_SQL = `insert into ${TABLE} (kind, key, period, value, unit, detail, publisher, source_url, ok, note) select x.kind, x.key, x.period, x.value, x.unit, x.detail, x.publisher, x.source_url, x.ok, coalesce(x.note, '') from json_to_recordset($1::json) as x(kind text, key text, period text, value double precision, unit text, detail text, publisher text, source_url text, ok boolean, note text) returning id`;
@@ -35,13 +35,17 @@ export const wf = workflow(
     code("Parse BFS", src("w3-bfs-parse.js"), [980, 250]),
 
     postgres("Insert reference", INSERT_SQL, [1240, 250], { replacement: "={{ [JSON.stringify($json.rows)] }}", off: true }),
+    jobLog("Log run", "reference-refresh", [1480, 250]),
+    jobGate("Job switch (monthly)", "reference-refresh", [130, 300]),
+    jobGate("Job switch (weekly)", "reference-refresh", [130, 500]),
   ],
   [
     ["Run by hand", "ElCom queries"], ["Run by hand", "BFE fetch"], ["Run by hand", "BFS file URL"],
-    ["Monthly", "ElCom queries"], ["Monthly", "BFS file URL"], ["Weekly", "BFE fetch"],
+    ["Monthly", "Job switch (monthly)"], ["Job switch (monthly)", "ElCom queries"], ["Job switch (monthly)", "BFS file URL"],
+    ["Weekly", "Job switch (weekly)"], ["Job switch (weekly)", "BFE fetch"],
     ["ElCom queries", "ElCom fetch"], ["ElCom fetch", "Parse ElCom"], ["Parse ElCom", "Insert reference"],
     ["BFE fetch", "Parse BFE"], ["Parse BFE", "Insert reference"],
-    ["BFS file URL", "BFS fetch"], ["BFS fetch", "Read XLSX"], ["Read XLSX", "Parse BFS"], ["Parse BFS", "Insert reference"],
+    ["BFS file URL", "BFS fetch"], ["BFS fetch", "Read XLSX"], ["Read XLSX", "Parse BFS"], ["Parse BFS", "Insert reference"], ["Insert reference", "Log run"],
   ],
 );
 if (import.meta.url === `file://${process.argv[1]}`) writeFileSync(new URL("w3-reference-refresh.workflow.json", import.meta.url), JSON.stringify(wf, null, 2) + "\n");

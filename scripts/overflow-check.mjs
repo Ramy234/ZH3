@@ -20,8 +20,14 @@ for (const width of [360, 390, 1280]) {
     if (wide > 0) failed = true;
   };
   await check("start");
+  // The "no car / not for me" paths and the how-this-works note sit on the start page. Open every closed <details> there.
+  for (const d of await page.locator("details").all()) {
+    await d.evaluate((el) => { el.open = true; });
+  }
+  await page.waitForTimeout(250);
+  await check("start with every note open");
   // The idea sheets open from the start page. Each has a picture that reacts to a tap.
-  for (const [open, label] of [[/A smaller car, and a bigger one only/, "2:1"], [/A used car's battery, checked by its age/, "battery"], [/Charging in a shared garage without/, "charger"], [/Should I wait for better batteries/, "wait or not"], [/Does a connected car track me/, "car data"]]) {
+  for (const [open, label] of [[/A smaller car, and a bigger one only/, "2:1"], [/A used car's battery, checked by its age/, "battery"], [/Charging in a shared garage without/, "charger"], [/Should I wait for better batteries/, "wait or not"], [/Does a connected car track me/, "car data"], [/Why does a car lose value/, "value loss"], [/Leasing instead of buying/, "leasing"], [/Try it for 48 hours first/, "48-hour test drive"]]) {
     await page.getByRole("button", { name: open }).first().click();
     await page.waitForTimeout(400);
     const tap = page.getByRole("button", { name: /About 8 days|Over 5 years old/ }).first();
@@ -49,8 +55,8 @@ for (const width of [360, 390, 1280]) {
   await page.getByRole("button", { name: "No car", exact: true }).first().click();
   await page.waitForTimeout(400);
   await check("no-car line and card");
-  // The result page has four panels, one open at a time. Walk all of them, then the sliders and the extra levers.
-  for (const name of [/^My week$/, /^My place$/, /^Sources$/, /^What if$/]) {
+  // The result page has five panels, one open at a time. Walk all of them, then the sliders and the extra levers.
+  for (const name of [/^My week$/, /^My place$/, /^Climate$/, /^Sources$/, /^What if$/]) {
     await page.getByRole("tab", { name }).first().click();
     await page.waitForTimeout(300);
     await check(`panel ${String(name)}`);

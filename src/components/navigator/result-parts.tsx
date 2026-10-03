@@ -144,12 +144,12 @@ export function NextMove({
   );
 }
 
-export type PanelDef = { id: "whatif" | "week" | "place" | "sources"; label: string };
+export type PanelDef = { id: "whatif" | "week" | "place" | "climate" | "sources"; label: string };
 
 export function ExploreTabs({ panels, value, onChange, children }: { panels: PanelDef[]; value: PanelDef["id"]; onChange: (id: PanelDef["id"]) => void; children: ReactNode }) {
   return (
     <section id="explore" className="scroll-mt-4">
-      <div role="tablist" aria-label="Explore your result" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div role="tablist" aria-label="Explore your result" className="grid grid-cols-2 gap-2 sm:grid-cols-5">
         {panels.map((p) => (
           <button
             key={p.id}
@@ -159,7 +159,7 @@ export function ExploreTabs({ panels, value, onChange, children }: { panels: Pan
             aria-selected={value === p.id}
             aria-controls={`panel-${p.id}`}
             onClick={() => onChange(p.id)}
-            className={`min-h-11 rounded-full border px-3 text-sm font-medium ${value === p.id ? "border-spruce bg-spruce text-spruce-ink" : "border-line bg-card"}`}
+            className={`min-h-11 rounded-full border px-3 text-sm font-medium ${panels.length % 2 === 1 ? "last:col-span-2 sm:last:col-span-1" : ""} ${value === p.id ? "border-spruce bg-spruce text-spruce-ink" : "border-line bg-card"}`}
           >
             {p.label}
           </button>

@@ -78,6 +78,9 @@ export const FACT_CODES: Record<string, GapCode[]> = {
   "local-grant": ["H3.3"],
   "wait-or-not": ["H5.2"],
   "car-data": ["X1"],
+  "value-loss": ["H3.1", "H5.1"],
+  leasing: ["H3.1", "H3.5"],
+  "test-drive": ["H1.1", "H1.2", "H4.4"],
 };
 
 /** What each charging-set-up level says is still missing. */

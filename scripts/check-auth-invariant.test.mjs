@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { GROK_ONLY } from "./grok-sandbox.mjs";
 import { execFile } from "node:child_process";
 import { mkdtempSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -90,7 +91,7 @@ test("only a divergence warns the smoke verdict", () => {
   }
 });
 
-test("the build side resolves the template's shipped app-env", () => {
+test("the build side resolves the template's shipped app-env", GROK_ONLY, () => {
   assert.equal(buildAuthEnabled(projectRoot(), {}), false);
   assert.equal(buildAuthEnabled(projectRoot(), { VITE_AUTH_ENABLED: "true" }), true);
 });

@@ -9,3 +9,4 @@ dist/
 *.log
 bev-navigator-package*.zip
 bev-navigator-claude-code.zip
+n8n/eval/last-smoke-*.json

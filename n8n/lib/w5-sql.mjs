@@ -8,4 +8,8 @@ export const DIGEST_SQL = [
   `select 'cohort', cohort, null, count(*)::int ${base} and cohort is not null group by cohort`,
   `select 'action', a, null, count(*)::int from bev_sessions_flat, unnest(actions) as a where stage = 'final' and not from_sample group by a`,
   `select 'fact_opened', f, null, count(*)::int from bev_sessions_flat, unnest(facts_opened) as f where stage = 'final' and not from_sample group by f`,
+  `select 'gap', g, null, count(*)::int from bev_gap_sessions, unnest(gap_codes) as g group by g`,
+  `select 'move_outcome', o, null, count(*)::int from bev_gap_sessions, unnest(move_outcomes) as o group by o`,
+  // The words box: how often a suggestion was accepted. bev_classifier_stats already hides groups under 5.
+  `select 'classifier', via || ' / ' || band, lang || ', accepted ' || accepted_pct || '%', suggestions from bev_classifier_stats`,
 ].join("\nunion all\n");

@@ -12,7 +12,7 @@ export const GRANTS_BY_POSTCODE = "https://www.energiefranken.ch/de";
 
 export type ActionKind = "ask" | "write" | "test" | "read" | "remind" | "local" | "plan";
 export type ActionStatus = "live" | "draft" | "retired";
-export type PanelId = "whatif" | "week" | "place" | "sources";
+export type PanelId = "whatif" | "week" | "place" | "climate" | "sources";
 
 /** One alternative: every field that is present must match. A field with a list matches any item in it. */
 export type Cond = {

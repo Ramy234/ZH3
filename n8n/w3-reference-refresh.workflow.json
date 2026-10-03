@@ -265,6 +265,72 @@
         }
       },
       "disabled": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into bev_job_runs (job_id, ok, rows_written, summary) values ('reference-refresh', $1, $2, $3) returning id",
+        "options": {
+          "queryReplacement": "={{ [true, $input.all().length, 'ran on schedule'] }}"
+        }
+      },
+      "id": "log-run",
+      "name": "Log run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1480,
+        250
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "Tj1nxebs0zLxWTBj",
+          "name": "bev Postgres"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select id from bev_jobs where id = 'reference-refresh' and enabled",
+        "options": {}
+      },
+      "id": "job-switch-monthly-",
+      "name": "Job switch (monthly)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        130,
+        300
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "Tj1nxebs0zLxWTBj",
+          "name": "bev Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select id from bev_jobs where id = 'reference-refresh' and enabled",
+        "options": {}
+      },
+      "id": "job-switch-weekly-",
+      "name": "Job switch (weekly)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        130,
+        500
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "Tj1nxebs0zLxWTBj",
+          "name": "bev Postgres"
+        }
+      }
     }
   ],
   "connections": {
@@ -293,6 +359,17 @@
       "main": [
         [
           {
+            "node": "Job switch (monthly)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Job switch (monthly)": {
+      "main": [
+        [
+          {
             "node": "ElCom queries",
             "type": "main",
             "index": 0
@@ -306,6 +383,17 @@
       ]
     },
     "Weekly": {
+      "main": [
+        [
+          {
+            "node": "Job switch (weekly)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Job switch (weekly)": {
       "main": [
         [
           {
@@ -409,6 +497,17 @@
         [
           {
             "node": "Insert reference",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert reference": {
+      "main": [
+        [
+          {
+            "node": "Log run",
             "type": "main",
             "index": 0
           }

@@ -26,8 +26,17 @@ const ONE_OF = {
   persona: ['urbanRenter', 'familyHome', 'distance', 'cost', 'skeptic', 'occasional'],
   via: ['tap', 'words'],
   action: ['fold_why', 'fold_evidence', 'share', 'picture', 'reminder', 'try_lever', 'dossier', 'charge_check'],
-  fact: ['two-for-one', 'mobile-charger', 'battery', 'workplace', 'public-tariff', 'tenant-right', 'winter', 'not-for-me', 'canton-tax', 'local-grant', 'wait-or-not', 'car-data'],
+  settlement: ['city', 'town', 'rural'],
+  tenure: ['own', 'rent'],
+  gapCode: ['H1.1', 'H1.2', 'H1.3', 'H2.1', 'H2.2', 'H2.3', 'H2.4', 'H3.1', 'H3.2', 'H3.3', 'H3.4', 'H3.5', 'H4.1', 'H4.2', 'H4.3', 'H4.4', 'H5.1', 'H5.2', 'H5.3', 'H5.4', 'H5.5', 'H6.1', 'H6.2', 'H7.1', 'H7.2', 'H7.3', 'X1'],
+  move: ['settle-charging', 'test-charging-week', 'ask-employer', 'ask-building', 'check-battery', 'price-rental-days', 'weekend-test', 'track-km', 'check-fuel-receipts', 'check-resale', 'keep-valid', 'set-price-ceiling', 'ask-seller', 'ask-car-data', 'ask-two-for-one-terms', 'see-commune'],
+  outcome: ['done', 'not_for_me', 'unclear'],
+  chargeMain: ['yes', 'maybe', 'no'],
+  chargeBackup: ['yes', 'no'],
+  chargeStanding: ['yes', 'no'],
+  fact: ['two-for-one', 'mobile-charger', 'battery', 'workplace', 'public-tariff', 'tenant-right', 'winter', 'not-for-me', 'canton-tax', 'local-grant', 'wait-or-not', 'car-data', 'value-loss', 'leasing', 'test-drive'],
 };
+const CANTON_LIST = ['ZH', 'BE', 'LU', 'UR', 'SZ', 'OW', 'NW', 'GL', 'ZG', 'FR', 'SO', 'BS', 'BL', 'SH', 'AR', 'AI', 'SG', 'GR', 'AG', 'TG', 'TI', 'VD', 'VS', 'NE', 'GE', 'JU'];
 const COHORT_RE = /^[a-z]{1,3}\d{1,2}$/;
 const cohort = typeof body.cohort === 'string' && COHORT_RE.test(body.cohort.trim().toLowerCase()) ? body.cohort.trim().toLowerCase() : null;
 const one = (v, list) => (typeof v === 'string' && list.includes(v) ? v : null);
@@ -51,6 +60,24 @@ const actions = [];
 for (const k of Array.isArray(body.actions) ? body.actions : []) {
   if (one(k, ONE_OF.action) && !actions.includes(k)) actions.push(k);
 }
+// Gap codes are worked out in the app from closed answers; here only members of the closed list pass.
+const gapCodes = [];
+for (const k of Array.isArray(body.gapCodes) ? body.gapCodes : []) {
+  if (one(k, ONE_OF.gapCode) && !gapCodes.includes(k)) gapCodes.push(k);
+}
+// The charging check: three closed taps. Kept only when all three were answered, like the app does.
+const cs = body.chargeSetup && typeof body.chargeSetup === 'object' ? body.chargeSetup : {};
+const setup = { main: one(cs.main, ONE_OF.chargeMain), backup: one(cs.backup, ONE_OF.chargeBackup), standing: one(cs.standing, ONE_OF.chargeStanding) };
+const setupDone = setup.main != null && setup.backup != null && setup.standing != null;
+const level = one(cs.level, ['holds', 'backup', 'test', 'timing', 'missing']);
+// The next move shown, and what the person did with it: ids from the catalogue, outcomes from three taps.
+const outcomes = [];
+for (const k of Array.isArray(body.outcomes) ? body.outcomes : []) {
+  const [id, o] = typeof k === 'string' ? k.split('.') : [];
+  if (one(id, ONE_OF.move) && one(o, ONE_OF.outcome) && !outcomes.includes(k)) outcomes.push(k);
+  if (outcomes.length >= 12) break;
+}
+// A postcode never comes in through here. Canton, settlement and tenure are closed taps; the two-digit area is not accepted.
 return [{
   json: {
     clientSession,
@@ -68,6 +95,10 @@ return [{
         },
       ],
       claimsOpened: opened,
+      gapCodes,
+      chargeSetup: setupDone ? { ...setup, level } : null,
+      nextMove: { shown: one(body.moveShown, ONE_OF.move), outcomes },
+      location: { canton: one(body.canton, CANTON_LIST), settlement: one(body.settlement, ONE_OF.settlement), tenure: one(body.tenure, ONE_OF.tenure), plz2: null },
       fromSample: body.fromSample === true,
       cohort,
       actions,

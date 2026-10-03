@@ -10,7 +10,10 @@ export type FactKey =
   | "canton-tax"
   | "local-grant"
   | "wait-or-not"
-  | "car-data";
+  | "car-data"
+  | "value-loss"
+  | "leasing"
+  | "test-drive";
 
 export type Fact = {
   key: FactKey;
@@ -75,6 +78,8 @@ export const FACTS: Record<FactKey, Fact> = {
     title: "What a tenant can ask for, today",
     body: "There is no general right to a charger. Article 260a of the Code of Obligations lets a tenant change the rented space only with the landlord written consent. A bay is for parking a car. Charging it is not yet treated as that ordinary use. A draft change to the Energy Act, in consultation until 12 October 2026, would let a person who lives in the building, and whose bay came with the home, require a basic installation: a supply line, a way to meter use, and load management where needed. In the draft the owner pays for that basic work and may pass the cost into the parking rent. The user pays for the charging point itself. The work must stay reasonable. This is not law. It does not cover a workplace, and it does not decide a mobile charger in one building. Ask in writing, and keep the answer.",
     source: "Federal Council consultation opened 19 June 2026, Motion 23.3936. Article 260a CO as in force. Not legal advice.",
+    url: "https://www.admin.ch/de/newnsb/66VYsJf9n5dbavk-IhLan",
+    linkName: "Federal Council: better access to charging at home, 19 June 2026",
     as_of: "2026-10-02",
     status: "draft",
   },
@@ -108,7 +113,9 @@ export const FACTS: Record<FactKey, Fact> = {
     key: "local-grant",
     title: "No commune grant is in this sum",
     body: "Switzerland pays no federal cheque for buying an electric car. Lists of cantonal purchase grants disagree. A Motoro roundup updated on 10 September 2026, using the TCS tax comparison, names Ticino as the only canton with a purchase premium: 4,000 francs for a new electric car, with conditions, until a credit of 11 million francs runs out. Other write-ups also name Basel-Stadt and Vaud. This check does not pick a winner and does not subtract any of them. Communes and local utilities sometimes add their own amount. Those programmes are small, capped, and they expire. A solar roof is a different investment: a federal one-off payment after the system is running, plus cantonal amounts, none of which is taken off the price of the car. The solar switch in this check only cheapens an illustrative share of home charging. It is not a roof. A postcode added in My place leads to the commune's own page, and a grant is still not a promise.",
-    source: "Motoro canton roundup, updated 10 September 2026, for the Ticino premium and the disagreement with other lists. Pronovo pays the federal solar one-off. Not this model.",
+    source: "Motoro canton roundup, updated 10 September 2026, for the Ticino premium and the disagreement with other lists. Pronovo pays the federal solar one-off. Not this model. The link is the public database of programmes, not the roundup.",
+    url: "https://www.energiefranken.ch/de",
+    linkName: "Energiefranken: programmes by postcode",
     as_of: "2026-10-02",
     status: "dated",
   },
@@ -131,6 +138,36 @@ export const FACTS: Record<FactKey, Fact> = {
     linkName: "SRF: how car makers see what we do (2017)",
     as_of: "2026-10-03",
     status: "dated",
+  },
+  "value-loss": {
+    key: "value-loss",
+    title: "What a car really costs: the value it loses",
+    body: "A company writes a car off over a few years and counts a slice each year. A household does not write anything off. It pays the price, or a loan, and later gets back what the car sells for. The difference is the value loss, and in the federal total-cost study it is the biggest block: purchase price and financing, minus the sale price, make up 43 to 72 percent of what a car costs over its life, depending on size and drive. Energy is only 5 to 9 percent for an electric car and 14 to 27 percent for a petrol car of the same size. That is why this check compares the extra price you pay now with what you save each year, and why the resale value is a number you can change. It is not a tax write-off, and it is not a figure for your car.",
+    source: "Swiss Federal Office of Energy, total-cost study of 23 March 2023 (EnergieSchweiz), tables 21 to 24, pages 30 to 33: cost shares for small, mid-size, premium and SUV, combustion and electric. 2022 prices, new cars. Not this person's car.",
+    url: "https://www.newsd.admin.ch/newsd/message/attachments/76392.pdf",
+    linkName: "Federal Office of Energy: full total-cost study, 23 March 2023",
+    as_of: "2026-10-03",
+    status: "dated",
+  },
+  leasing: {
+    key: "leasing",
+    title: "Leasing instead of buying: what to check first",
+    body: "In Swiss law a lease of a car for private use is a credit contract. Leases between 500 and 80,000 francs fall under the Consumer Credit Act, which brings a right to withdraw after signing, reported as 14 days by several consumer sources (one cantonal leaflet says 7, so read the law text). Leasing does not remove the value loss: the lessor prices it into the monthly rate, and at the end you hand the car back. Leaving early is usually costly. The return is checked against the lessor's damage list, kilometres over the agreed limit are billed per kilometre, and full-comprehensive insurance is usually a condition. The Federal Council set the highest interest rate for cash loans at 10 percent from 1 January 2026. Its release does not say whether leasing is covered in the same way, so ask for the effective yearly rate in writing. This check does not price a lease, and this sheet recommends none.",
+    source: "Federal Council, 31 October 2025 (maximum rate from 1 January 2026, cash loans). Consumer Credit Act (KKG), as summarised by Moneyland, Beobachter (updated 22 July 2025) and Die Mobiliar (September 2026). TCS leasing-return booklet, 2018. Not legal advice. The official law text could not be opened for this sheet.",
+    url: "https://www.admin.ch/de/newnsb/DDMAgqQLfpn8NHgjWIIrt",
+    linkName: "Federal Council: highest interest rate for consumer credit from 1 January 2026",
+    as_of: "2026-10-03",
+    status: "dated",
+  },
+  "test-drive": {
+    key: "test-drive",
+    title: "Try it for 48 hours before you decide",
+    body: "A short test drive shows how a car feels. It does not show whether your week works. The federal energy programme recommends a test drive and notes that many dealers offer a free trial. An extended test, two days or more, is the idea here: charge it where you would charge it, drive your own commute, take it on the motorway, and leave it overnight in the cold if you can. A 24-hour and a 3-day trial were part of an EnergieSchweiz campaign that ran from May to 31 July 2026 and has ended. No standing multi-day offer from a provider was found, so this is an idea and not a product. Car sharing or a rental does a similar job today. This is not an offer.",
+    source: "EnergieSchweiz, electric cars for every day (undated). eco-auto of the VCS, 1 June 2026, on the test-drive campaign (ended 31 July 2026; the campaign page itself could not be opened). TCS, 19 February 2026, seven tips for buying an electric car. Comparis, 27 June 2024. Not a provider offer.",
+    url: "https://energieschweiz.ch/programme/fahr-mit-dem-strom/elektroauto",
+    linkName: "EnergieSchweiz: electric cars for every day",
+    as_of: "2026-10-03",
+    status: "concept",
   },
 };
 
@@ -157,6 +194,7 @@ export const FACT_VIEW: Record<FactKey, FactView> = {
       { label: "In this check", text: "The switch “One class down” prices it: a smaller car, and the exceptional days booked as rental at an illustrative day rate." },
     ],
     links: [
+      { name: "EnergieSchweiz: electric cars for every day", href: "https://energieschweiz.ch/programme/fahr-mit-dem-strom/elektroauto", note: "The federal energy programme. It names car sharing as one way to use an electric car without owning a big one." },
       { name: "The Mobility car-sharing network", href: "https://www.mobility.ch/", note: "A Swiss car-sharing cooperative: one example of booking a larger car by the hour or day. An example, not a recommendation, and not a quote." },
     ],
   },
@@ -325,6 +363,64 @@ export const FACT_VIEW: Record<FactKey, FactView> = {
       { label: "What an electric car adds", text: "Public charging. The operator or the card provider can hold a record of where and when you charged. Charging at home or at work leaves a different trail." },
       { label: "At handover", text: "Open the car's privacy or connectivity settings together with the seller, and choose the most private option. Do not link an app account unless you want the remote functions. Ask how to reset the car for a second driver, and when you sell it." },
       { label: "In writing", text: "Ask the maker which data leave the car for your exact model and settings, who receives them, where they are processed, and for how long. The next-move card has the message to copy." },
+    ],
+  },
+  "value-loss": {
+    kicker: "A federal study of what a car costs. 2022 prices, new cars.",
+    figure: {
+      value: "43 to 72%",
+      caption: "Purchase price and financing, minus what the car sells for, as a share of the total cost of owning it. The range runs over small cars to premium, combustion and electric. It is the biggest block, bigger than fuel or electricity.",
+    },
+    links: [
+      { name: "Federal Office of Energy: full total-cost study, 23 March 2023", href: "https://www.newsd.admin.ch/newsd/message/attachments/76392.pdf", note: "The cost blocks for each size and drive are in tables 21 to 24, pages 30 to 33. 2022 prices, an insurance profile in Aarau." },
+      { name: "EnergieSchweiz: factsheet on the total cost of a car", href: "https://www.newsd.admin.ch/newsd/message/attachments/76353.pdf", note: "The short version. It sets the eight-year window this check uses." },
+    ],
+    lines: [
+      { label: "What a company does", text: "It writes the car off over a few years and counts a slice each year. That is an accounting rule, not money leaving the account." },
+      { label: "What a household has", text: "A price paid now, or a loan, and a sale price later. The value loss is the gap between them, and you only know it when you sell." },
+      { label: "Why the check asks for the extra price", text: "Because that is the money you put in. It then asks how long the cheaper running takes to cover it, and what happens if you sell sooner." },
+      { label: "Why the resale value is yours to change", text: "A few thousand francs more or less at the end moves the result more than a few rappen on electricity. You can change it under What if." },
+      { label: "What differs for an electric car", text: "Energy is a small block: 5 to 9 percent of the total, against 14 to 27 percent for a petrol car of the same size. The price you pay and the price you get back carry the result." },
+    ],
+  },
+  leasing: {
+    kicker: "Consumer sources and one federal release. Not legal advice. This check prices no lease.",
+    links: [
+      { name: "Federal Council: highest interest rate for consumer credit from 1 January 2026", href: "https://www.admin.ch/de/newnsb/DDMAgqQLfpn8NHgjWIIrt", note: "A federal press release of 31 October 2025. It names cash loans and overdrafts and does not say whether leasing is covered." },
+      { name: "Consumer Credit Act (KKG), official text", href: "https://www.fedlex.admin.ch/eli/cc/2002/593/de", note: "The federal law itself. It opens as a web app, and Article 16 gives the right to withdraw." },
+      { name: "TCS: returning a leased car (booklet, 2018)", href: "https://www.tcs.ch/mam/Digital-Media/PDF/Booklets/leasing-rueckgabe.pdf", note: "The Swiss touring club, 2018. How the return is checked, what is billed, and how to report damage." },
+      { name: "Beobachter: the leasing contract", href: "https://www.beobachter.ch/beratung/rechtsratgeber/konsum/kauf-und-leasing/leasing/auto-der-leasingvertrag", note: "A consumer magazine, a company and not a public body. 22 April 2022: the Consumer Credit Act, the 14-day withdrawal, what to read in the contract." },
+      { name: "Moneyland: leasing explained", href: "https://www.moneyland.ch/de/leasing-definition", note: "A comparison provider, a company and not a public body. Undated. The scope of the Consumer Credit Act and the interest cap." },
+      { name: "Die Mobiliar: car leasing in Switzerland", href: "https://www.mobiliar.ch/ratgeber/autoleasing-schweiz", note: "An insurer's guide, a company and not a neutral source. September 2026: residual-value table, kilometre limit, damage, early exit." },
+    ],
+    lines: [
+      { label: "What it is in law", text: "A credit contract. Between 500 and 80,000 francs it falls under the Consumer Credit Act, with a right to withdraw after signing (14 days in most sources, 7 in one cantonal leaflet: check the law)." },
+      { label: "What it does not do", text: "Remove the value loss. The lessor prices it into the monthly rate. At the end you return the car and have no car and no sale price." },
+      {
+        label: "Ask for these in writing",
+        text: "The effective yearly interest rate. The residual value in the contract, and who carries the risk if the car is worth less. The kilometres included and the price per extra kilometre. The exact cost of leaving early.",
+        more: [
+          { label: "And these", text: "The list of what counts as damage beyond normal wear. The insurance the lessor requires and what it costs. What the buy-out price is at the end, and whether it matches the residual value in the contract." },
+        ],
+      },
+      { label: "Leaving early", text: "Usually costly, because a car loses value fastest in its first years. Work out what you would pay at year two before you sign." },
+      { label: "For an electric car", text: "The residual value is the lessor's guess about the battery and the second-hand market. Ask what it assumes and how a battery certificate at the end would be treated." },
+    ],
+  },
+  "test-drive": {
+    kicker: "An idea worth knowing. Not an offer.",
+    links: [
+      { name: "EnergieSchweiz: electric cars for every day", href: "https://energieschweiz.ch/programme/fahr-mit-dem-strom/elektroauto", note: "The federal energy programme. It recommends a test drive, notes that many dealers offer a free trial, and points to car sharing as another way to try." },
+      { name: "TCS: seven tips for buying an electric car", href: "https://www.tcs.ch/de/der-tcs/presse/medienmitteilungen-2026/tipps-zum-kauf-eines-elektroautos.php", note: "The Swiss touring club, 19 February 2026. How much range to plan for, and what to check on warranty and battery." },
+      { name: "eco-auto (VCS): test an electric car in daily life", href: "https://eco-auto.info/article/e-autos-im-alltag-testen-1-tag-bis-3-monate-probefahrt-aktion", note: "An environmental transport association, 1 June 2026. It describes the EnergieSchweiz trial campaign of May to July 2026, which has ended." },
+      { name: "Mobility: electric car sharing", href: "https://mobility.ch/elektromobilitaet/fahr-mit-dem-strom", note: "A car-sharing provider, a company and not a neutral source. Its free-months campaign ran from May to 31 July 2026 and has ended. Listed as an example of trying an electric car by the hour." },
+    ],
+    lines: [
+      { label: "The idea", text: "Two days with the car, not twenty minutes. Enough to see whether your own week works." },
+      { label: "What to try in them", text: "Charge it where you would charge it. Drive your own commute and the motorway. If you can, leave it outside overnight in the cold and pre-heat it while plugged in." },
+      { label: "How much range to trust", text: "The TCS suggests planning for two to four days of use between charges. For winter trips it suggests a rated range of about twice the distance to your first break." },
+      { label: "What exists today", text: "Free trials at many dealers, car sharing, and rental. The federal 24-hour and 3-day trial campaign ended on 31 July 2026. No standing multi-day offer from a provider was found." },
+      { label: "What to ask for", text: "The days, the kilometres, who insures it, what you pay if you do not buy, and a charger you may use. In writing, as with any 2:1 or lease arrangement." },
     ],
   },
 };

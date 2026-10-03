@@ -50,7 +50,7 @@ export const LEFT_OUT: Left[] = [
   {
     id: "climate",
     title: "Climate, shown beside the money",
-    why: "The federal study on when a switch lowers greenhouse gases is shown by distance driven, in Sources. It never enters the francs and is not a personal figure.",
+    why: "The federal study on when a switch lowers greenhouse gases is shown by distance driven, in the Climate tab. It never enters the francs and is not a personal figure.",
     effect: "unclear",
     source: { name: "EnergieSchweiz, January 2025", href: "https://pubdb.bfe.admin.ch/de/publication/download/12158" },
   },

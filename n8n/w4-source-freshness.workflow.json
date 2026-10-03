@@ -194,6 +194,51 @@
       "disabled": true
     },
     {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select id from bev_jobs where id = 'source-freshness' and enabled",
+        "options": {}
+      },
+      "id": "job-switch",
+      "name": "Job switch",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        130,
+        200
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "Tj1nxebs0zLxWTBj",
+          "name": "bev Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into bev_job_runs (job_id, ok, rows_written, summary) values ('source-freshness', $1, $2, $3) returning id",
+        "options": {
+          "queryReplacement": "={{ [true, $input.all().length, 'ran on schedule'] }}"
+        }
+      },
+      "id": "log-run",
+      "name": "Log run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1700,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "Tj1nxebs0zLxWTBj",
+          "name": "bev Postgres"
+        }
+      },
+      "disabled": true
+    },
+    {
       "parameters": {},
       "id": "send-list-to-team-wire-a-mail-node-",
       "name": "Send list to team (wire a mail node)",
@@ -218,6 +263,17 @@
       ]
     },
     "Weekly": {
+      "main": [
+        [
+          {
+            "node": "Job switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Job switch": {
       "main": [
         [
           {
@@ -282,6 +338,17 @@
           },
           {
             "node": "Send list to team (wire a mail node)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert checks": {
+      "main": [
+        [
+          {
+            "node": "Log run",
             "type": "main",
             "index": 0
           }

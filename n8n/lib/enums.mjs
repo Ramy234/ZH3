@@ -17,6 +17,14 @@ export const ENUMS = {
   persona: ["urbanRenter", "familyHome", "distance", "cost", "skeptic", "occasional"],
   via: ["tap", "words"],
   action: ["fold_why", "fold_evidence", "share", "picture", "reminder", "try_lever", "dossier", "charge_check"],
-  fact: ["two-for-one", "mobile-charger", "battery", "workplace", "public-tariff", "tenant-right", "winter", "not-for-me", "canton-tax", "local-grant", "wait-or-not", "car-data"],
+  settlement: ["city", "town", "rural"],
+  tenure: ["own", "rent"],
+  gapCode: ["H1.1", "H1.2", "H1.3", "H2.1", "H2.2", "H2.3", "H2.4", "H3.1", "H3.2", "H3.3", "H3.4", "H3.5", "H4.1", "H4.2", "H4.3", "H4.4", "H5.1", "H5.2", "H5.3", "H5.4", "H5.5", "H6.1", "H6.2", "H7.1", "H7.2", "H7.3", "X1"],
+  move: ["settle-charging", "test-charging-week", "ask-employer", "ask-building", "check-battery", "price-rental-days", "weekend-test", "track-km", "check-fuel-receipts", "check-resale", "keep-valid", "set-price-ceiling", "ask-seller", "ask-car-data", "ask-two-for-one-terms", "see-commune"],
+  outcome: ["done", "not_for_me", "unclear"],
+  chargeMain: ["yes", "maybe", "no"],
+  chargeBackup: ["yes", "no"],
+  chargeStanding: ["yes", "no"],
+  fact: ["two-for-one", "mobile-charger", "battery", "workplace", "public-tariff", "tenant-right", "winter", "not-for-me", "canton-tax", "local-grant", "wait-or-not", "car-data", "value-loss", "leasing", "test-drive"],
 };
 export const CANTONS = ["ZH", "BE", "LU", "UR", "SZ", "OW", "NW", "GL", "ZG", "FR", "SO", "BS", "BL", "SH", "AR", "AI", "SG", "GR", "AG", "TG", "TI", "VD", "VS", "NE", "GE", "JU"];

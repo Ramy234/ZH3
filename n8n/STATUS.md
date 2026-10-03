@@ -1,36 +1,55 @@
-# n8n status, 2 October 2026
+# n8n status, 3 October 2026
 
-The workspace is https://hsg-consultancy-project.app.n8n.cloud and the project is Martin's personal project. Move the workflow to "Project Zurich Insurance" when the team should see it.
+Workspace: https://hsg-consultancy-project.app.n8n.cloud (Martin's personal project). **Nothing below is published.** Every workflow is
+inactive, every schedule is switched off, every database write starts off, and a test table comes before any real table.
 
-| Item | State |
-|---|---|
-| Workflow | "ZurichProjectFristDraft" (id `01ebguVsWaalZaJY`). The same nodes as `bev-navigator.workflow.json`, plus a "Test by hand" path. **Not published** (inactive). |
-| Postgres step | Credential "bev Postgres". Switched **off** after the test. It targets `bev_sessions_test`, both in n8n and in this repo. |
-| Sync | `ZurichProjectFristDraft.live-export.json` is Martin's export from n8n. `node n8n/build.mjs --check` confirms that the repo's node code, parameters, credential, on/off state and connections match it. It was in sync on 2 Oct 2026. To build for the real table, use `BEV_TABLE=bev_sessions node n8n/build.mjs`, then import that file or paste it into n8n. |
-| Database | Supabase project **ZH3**, project ref `xijjuxkqhahkotgmjlqv`, session pooler `aws-1-eu-central-1.pooler.supabase.com:5432`. Table `bev_sessions_test` has row-level security on. |
-| Credential | "bev Postgres": SSL require, "Ignore SSL Issues" on (Supabase pooler certificate). The password is entered by Martin only. |
-| Test | Execution 926 inserted one row. Execution 927 read it back: 1 row, `stage = final`, `annualSwap = 2081`, `claimsOpened = ["battery"]`. The junk that was sent (postcode, sentence, script tag) is **not** stored. |
-| Cleanup | A stray empty table, `bev_sessions_test`, with one test row was created by mistake in the older Supabase project behind "Postgres_account_martin_leu". Martin to drop it: `drop table public.bev_sessions_test;` |
+## What exists
 
-**Next steps:**
-
-1. Create `bev_sessions` in ZH3, with the same columns and row-level security on.
-2. Change the table name in the Postgres step.
-3. Let the app post to `/webhook/bev-session`, keeping a fallback to `saveSession`.
-4. Run a test from the app.
-5. Publish.
-
-## Step 3 files (3 Oct 2026). All inactive; nothing is imported into n8n yet.
-
-| File | What | Writes to | State |
+| File | What it does | Writes | State |
 |---|---|---|---|
-| `w1-session-ingest.workflow.json` | The live draft's checks plus 200 / 400 / 502 replies, so the app can fall back when n8n did not store a session. | `bev_sessions_test` | Insert step off. Add a Header Auth credential before publishing. |
-| `w3-reference-refresh.workflow.json` | ElCom canton means (this year and next), BFE charging points per postcode, BFS pump prices. | `bev_reference_test` | Insert off. The BFS branch is idle until the current XLSX URL is pasted. ElCom and BFE endpoints could not be called from the build sandbox, so run each branch by hand once. |
-| `w4-source-freshness.workflow.json` | Fetches each stored source URL weekly and records status and a text hash. | `bev_source_checks_test` | Insert off. Mail node is a placeholder. |
-| `w5-analytics-digest.workflow.json` | Counts from the flat view; cells under 5 hidden; sample sessions excluded. | nothing (reads) | Mail node is a placeholder. |
+| `bev-navigator.workflow.json` and `ZurichProjectFristDraft.live-export.json` | The first draft, kept in sync with Martin's live copy (`node n8n/build.mjs --check`). | `bev_sessions_test` | Inactive. Left untouched on purpose. |
+| `w1-session-ingest.workflow.json` | Session intake with the app's current closed fields (charging check, next move and outcome, gap codes, canton, settlement, tenure). Refuses a postcode. A test fails if its stored keys drift from `saveSession`. | `bev_sessions_test` | Insert off. The app does not post here yet; it saves through its own server and Supabase. |
+| `w2-dataset-publish.workflow.json` | Sheet to dataset: validates a Google Sheet and prepares an insert-only dataset version. | none until approved | Inactive. Template: `n8n/sheet/bev-dataset-template.csv` (regenerated from the dataset, with a test that fails if it goes stale). |
+| `w3-reference-refresh.workflow.json` | ElCom, BFE and BFS reference figures. Never changes the dataset. | `bev_reference_test` | Insert off, schedule off, **job switch** `reference-refresh`. |
+| `w4-source-freshness.workflow.json` | Fetches each source page once and notes if it is gone or changed. | `bev_source_checks_test` | Insert off, schedule off, **job switch** `source-freshness`. |
+| `w5-analytics-digest.workflow.json` | Counts only; cells under 5 hidden. Now also lists gap codes, what people did with the next move, and the own-words box acceptance. | none | Mail node is a placeholder, schedule off, **job switch** `analytics-digest`. |
+| `w6-words-classifier.workflow.json` | Own-words box, rules only, no AI. | none | Inactive. |
+| `w7-words-classifier-jev.workflow.json` | Same box with Jev as the AI step. Scrub, rules, closed lists, confidence gates, injection check. Returns closed names only. | none | AI flag off, no credential. |
+| `w8-picture-test-jev.workflow.json` | Bench: can a picture be sorted into a closed list (picture, then a vision model's two-sentence description, then Jev)? Test pictures only. | none | Run by hand only; both outside steps off. Not for Zurich deck material (Restricted, NDA). |
 
-Builders: `n8n/build-w1.mjs`, `build-w3.mjs`, `build-w4.mjs`, `build-w5.mjs`, sharing `n8n/lib/kit.mjs`. The closed value lists live in `n8n/lib/enums.mjs`; a test fails if W1's whitelist or the app's types drift from them. `scripts/n8n-workflows.test.mjs` runs every Code node and every SQL statement (PGlite).
+## Weekly checks are off, and how to turn one on
 
-| `w6-words-classifier.workflow.json` | Optional "say it in your own words" classifier. Rules answer; the AI step is off, with no credential. Keeps no execution data. | nothing | Needs Martin's decision before the AI step or the app box goes live. `node scripts/words-eval.mjs`. |
+The three scheduled workflows read their own row in `bev_jobs` before they do anything. All three rows are registered `enabled = false`
+(migration 0026). Running a workflow **by hand** skips that switch, because pressing the button is the switch.
 
-Database: migrations `0012` (reference, source checks, flat view over sessions, insert-only triggers, RLS) and `0013` (test copies). Not applied to Supabase ZH3 yet.
+To turn a check on later: (1) one update, `update bev_jobs set enabled = true where id = 'source-freshness';`
+(2) in n8n, switch on that workflow's schedule node, switch on its "Log run" node, and activate the workflow.
+To see what ran: `select * from bev_job_status;`. A run writes one short line to `bev_job_runs`.
+
+## Import order (when you are ready; none of it is needed for the live app)
+
+1. Apply migrations (Vercel's build does it). 2. Import W7, then W6 only if you want rules-only. 3. Import W3, W4, W5 and run each **by hand once**.
+4. Import W1 only when the app should post to n8n. 5. W8 only for a lab session.
+
+## Trying Jev (the AI step of the own-words box)
+
+On your Mac, in Terminal inside the project folder (the key is typed into the command and is not saved to any file):
+
+    node scripts/jev-smoke.mjs --dry                      # shows what would be sent, sends nothing
+    node scripts/jev-smoke.mjs --rules                    # accuracy of the keyword rules alone
+    JEV_API_KEY=your-key node scripts/jev-smoke.mjs       # the real test on the 37 + fixed sentences
+
+It writes a counts-only report to `n8n/eval/last-smoke-*.json` (git-ignored). Read it before switching anything on. German and French sentences
+are in the set, and their accuracy is not known until you run it. The keyword rules were written after the sentences were seen, so their
+score is optimistic; Jev's score is the one that tells you something.
+
+## Database (Supabase ZH3, project ref `xijjuxkqhahkotgmjlqv`)
+
+Migrations 0001 to 0028 are in `migrations/`. The Vercel build runs them. 0026 adds `bev_classifier_log` (closed fields only, no text), `bev_classifier_stats`,
+`bev_jobs`, `bev_job_runs`, `bev_job_status`. Row-level security is on for every table.
+
+## Still open
+
+- A stray test table `bev_sessions_test` in the older Supabase project behind "Postgres_account_martin_leu": drop it with `drop table public.bev_sessions_test;`.
+- W3's ElCom and BFE endpoints could not be called from the build sandbox: run each branch by hand once.
+- The BFS petrol and diesel branch is idle until the current XLSX link is pasted in "BFS file URL".

@@ -16,5 +16,8 @@ const parts = [
   '', 'Facts opened:', ...by('fact_opened').map(line),
   '', 'Result-page actions (sessions that did each at least once):', ...by('action').map(line),
   '', 'Sittings (code from the link):', ...by('cohort').map(line),
+  '', 'Gaps touched (codes of the INFRAS barrier list; the content backlog follows the biggest ones):', ...by('gap').map(line),
+  '', 'Next move: what people did with it (done / not for me / unclear):', ...by('move_outcome').map(line),
+  '', 'Own-words box: suggestions and how often they were accepted:', ...by('classifier').map(line),
 ];
 return [{ json: { text: parts.join('\n'), shown: kept.length, hidden } }];

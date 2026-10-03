@@ -24,7 +24,7 @@ function LinkList({ links, compact = false }: { links: readonly RightsLink[]; co
 }
 
 /** Rights, tax and help that depend on the canton and on owning or renting. Not in the francs. */
-export function RightsCard({ rows, tenure, onTenure }: { rows: RightsRow[]; tenure: Tenure | null; onTenure: (t: Tenure | null) => void }) {
+export function RightsCard({ rows, tenure, onTenure, hint }: { rows: RightsRow[]; tenure: Tenure | null; onTenure: (t: Tenure | null) => void; hint?: Tenure }) {
   const LABEL: Record<Tenure, string> = { own: "I own my home", rent: "I rent" };
   return (
     <section id="rights" className="rounded-2xl border border-line bg-card p-4 lg:p-5" aria-labelledby="rights-title">
@@ -47,6 +47,7 @@ export function RightsCard({ rows, tenure, onTenure }: { rows: RightsRow[]; tenu
           </button>
         ))}
       </div>
+      {hint && !tenure ? <p className="mt-2 text-xs text-spruce">From your sentence: {LABEL[hint]}. Tap to confirm.</p> : null}
       <ul className="m-0 mt-4 list-none divide-y divide-line p-0">
         {rows.map((r) => (
           <li key={r.id} className="py-4 first:pt-0 last:pb-0">
@@ -155,9 +156,13 @@ export function UsedPriceCard({ result }: { result: Result }) {
           ? `The class reference for a used one is ${chf(u.classUsed)}, so a typical one fits under this line.`
           : `The class reference for a used one is ${chf(u.classUsed)}, which is above it. A typical one does not fit. A cheaper one, or a smaller class, might.`}
       </p>
-      <p className="mt-2 text-xs leading-relaxed text-muted">
-        How it is worked out: what your car sells for ({chf(u.resale)}), plus the yearly saving ({chf(u.saving)}) times {u.window} years, minus the charging gear and battery check ({chf(u.gear)}). A class figure, not a listing and not an offer. It uses the class consumption, not a specific car. Ask for the battery health certificate before any price talk.
-      </p>
+      <details className="mt-1 text-xs text-muted">
+        <summary className="min-h-11 cursor-pointer py-2 font-medium text-spruce">How it is worked out</summary>
+        <p className="leading-relaxed">
+          What your car sells for ({chf(u.resale)}), plus the yearly saving ({chf(u.saving)}) times {u.window} years, minus the charging gear and battery check ({chf(u.gear)}). A class figure, not a listing and not an offer. It uses the class consumption, not a specific car.
+        </p>
+      </details>
+      <p className="mt-1 text-xs leading-relaxed text-muted">Ask for the battery health certificate before any price talk.</p>
       <LinkList links={[RIGHTS_LINKS.tcsUsed]} />
     </section>
   );

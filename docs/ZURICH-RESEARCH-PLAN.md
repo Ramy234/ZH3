@@ -87,7 +87,7 @@ The HSG slide asks for an independent, verifiable decision aid that creates a "d
 | Dataset | Rows for charging network size and rest-area fast-charging share (official sources), survey figures with year and caveat | rows, status `proposed` |
 | Page | Charging-set-up check on "My place"; "rules still being decided" line; "Wait, or not?" and privacy cards in "Ideas worth knowing"; decision file replaces plain plan | after the data above |
 | Analytics | Pairs of `gap_codes` per session in cells of 10 or more, for the combination question | small view |
-| JEV | Not adopted. Re-open only if free text is ever added | none |
+| JEV | **Superseded 3 Oct 2026.** Martin asked for a classifier and a smoke test. Built as an optional "own words" box: keyword rules on the device first, Jev only after a visible tick and a server flag, closed answers only (W7, `scripts/jev-smoke.mjs`). It is still off until Martin has read the smoke report. See `docs/CLOSE-THE-DOTS.md` | W7, `bev_classifier_log` |
 
 Every new table gets row-level security, every new action needs a neutral publisher, and no sheet changes the francs.
 
@@ -128,3 +128,10 @@ Every new table gets row-level security, every new action needs a neutral publis
 **Added 3 Oct 2026 (late night):** price-to-watch card for the "keep" ending, "What applies to you" (tax, grants, tenant, owner, solar, commune) with an own-or-rent tap, "More to explore", the in-person events table (empty), a small years chip on phones, effect lines on the use chips, and an audit of all next moves (see DECISIONS.md).
 
 **Gap codes with no sheet or move yet:** H3.4 company-car rules, H4.1 too few models (not ours to answer), H5.3 safety and power-supply worries, H5.4 using the car abroad, H5.5 personal safety while charging, H6.2 repair and service, H7.2 battery production and recycling (needs the LCA material, whose zip arrived empty).
+
+
+## 6. Gap codes that no sheet speaks to yet (3 Oct 2026)
+
+H3.4 company-car rules, H5.3 safety and power-supply worries, H5.4 using it abroad, H5.5 personal safety while charging, H6.2 repair and service, and H7.2 battery production and recycling have no sheet,
+so no session can touch them from the page. That is deliberate: a code is added to a sheet only once the sheet has a dated primary source. Candidates in order of
+likely value for the poorer 80 %: H6.2 (repair and service), H3.4 (Swiss company-car taxation, relevant to employees offered one), H5.4 (cross-border charging).

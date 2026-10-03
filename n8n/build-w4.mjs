@@ -2,7 +2,7 @@
 //   node n8n/build-w4.mjs
 //   BEV_CHECKS_TABLE=bev_source_checks node n8n/build-w4.mjs   only after a test insert succeeded
 import { writeFileSync } from "node:fs";
-import { code, node, noop, note, postgres, src, pickTable, workflow } from "./lib/kit.mjs";
+import { code, jobGate, jobLog, node, noop, note, postgres, src, pickTable, workflow } from "./lib/kit.mjs";
 
 export const TABLE = pickTable(process.env.BEV_CHECKS_TABLE, "bev_source_checks", "bev_source_checks_test");
 export const URLS_SQL = `select 'bev_facts' as origin, key as origin_key, url from bev_facts where url is not null and url <> ''
@@ -27,11 +27,13 @@ export const wf = workflow(
     }, { onError: "continueRegularOutput" }),
     code("Compare", src("w4-compare.js"), [1220, 100]),
     postgres("Insert checks", INSERT_SQL, [1460, 0], { replacement: "={{ [JSON.stringify($json.rows)] }}", off: true }),
+    jobGate("Job switch", "source-freshness", [130, 200]),
+    jobLog("Log run", "source-freshness", [1700, 0]),
     noop("Send list to team (wire a mail node)", [1460, 200]),
   ],
   [
-    ["Run by hand", "URLs to check"], ["Weekly", "URLs to check"], ["URLs to check", "Previous checks"], ["Previous checks", "Unique URLs"],
-    ["Unique URLs", "Fetch page"], ["Fetch page", "Compare"], ["Compare", "Insert checks"], ["Compare", "Send list to team (wire a mail node)"],
+    ["Run by hand", "URLs to check"], ["Weekly", "Job switch"], ["Job switch", "URLs to check"], ["URLs to check", "Previous checks"], ["Previous checks", "Unique URLs"],
+    ["Unique URLs", "Fetch page"], ["Fetch page", "Compare"], ["Compare", "Insert checks"], ["Insert checks", "Log run"], ["Compare", "Send list to team (wire a mail node)"],
   ],
 );
 if (import.meta.url === `file://${process.argv[1]}`) writeFileSync(new URL("w4-source-freshness.workflow.json", import.meta.url), JSON.stringify(wf, null, 2) + "\n");

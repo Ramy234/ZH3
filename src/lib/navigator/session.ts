@@ -164,34 +164,20 @@ export const cantonHomeRate = createServerFn({ method: "POST" })
 
 const muniCache = new Map<string, { at: number; value: { homeChf: number; n: number } }>();
 
-export const lookupPostcode = createServerFn({ method: "POST" })
-  .validator((input: string) => input)
+/**
+ * The home electricity price of one municipality (ElCom, 2026), by its BFS number. The postcode is looked up in the browser
+ * (postcodes.ts), so this server function never sees it: only a municipality number and a canton code arrive here.
+ * Falls back to the canton mean, and to null if neither can be read.
+ */
+export const lookupMunicipality = createServerFn({ method: "POST" })
+  .validator((input: { bfs: number; canton: string; place: string }) => input)
   .handler(async ({ data }): Promise<{ canton: string; place: string; homeChf: number; n: number; year: string } | null> => {
-    const plz = String(data ?? "").trim();
-    if (!/^[1-9]\d{3}$/.test(plz)) return null;
-    let canton = "";
-    let place = "";
-    let muni = "";
-    try {
-      const res = await fetch(`https://openplzapi.org/ch/Localities?postalCode=${plz}`, {
-        headers: { Accept: "application/json" },
-        signal: AbortSignal.timeout(8000),
-      });
-      if (!res.ok) return null;
-      const rows = (await res.json()) as {
-        commune?: { key?: string; name?: string };
-        canton?: { shortName?: string };
-      }[];
-      const row = rows?.[0];
-      const code = row?.canton?.shortName ?? "";
-      if (!CANTON_BFS[code]) return null;
-      canton = code;
-      place = row?.commune?.name || CANTONS.find((item) => item.code === code)?.name || code;
-      muni = String(row?.commune?.key ?? "");
-    } catch {
-      return null;
-    }
-    if (!/^\d{1,5}$/.test(muni)) {
+    const canton = String(data?.canton ?? "");
+    if (!CANTON_BFS[canton]) return null;
+    const place = String(data?.place ?? "").slice(0, 80) || CANTONS.find((item) => item.code === canton)?.name || canton;
+    const bfs = Number(data?.bfs);
+    const muni = Number.isInteger(bfs) && bfs > 0 && bfs < 10000 ? String(bfs) : "";
+    if (!muni) {
       const mean = await loadCantonMean(canton);
       if (!mean) return { canton, place, homeChf: 0, n: 0, year: "2026" };
       return { canton, place: mean.place, homeChf: mean.homeChf, n: mean.n, year: mean.year };
@@ -230,7 +216,8 @@ SELECT (AVG(?total) AS ?avg) (COUNT(?total) AS ?n) WHERE {
       return { canton, place, ...value, year: "2026" };
     } catch {
       const mean = await loadCantonMean(canton);
-      if (!mean) return null;
+      // The postcode did match a place on the device. If no price can be had, say the place and let the page keep its mean.
+      if (!mean) return { canton, place, homeChf: 0, n: 0, year: "2026" };
       return { canton, place: mean.place, homeChf: mean.homeChf, n: mean.n, year: mean.year };
     }
   });
@@ -276,6 +263,25 @@ export const listWatch = createServerFn({ method: "GET" }).handler(async (): Pro
   }
   return WATCH_SEED;
 });
+
+/**
+ * Deletes everything stored under one visit's random session number: the saved answers and the postcode, if one was added.
+ * Nothing else can be linked to a person, so this is the whole record. Returns how many rows went.
+ */
+export const forgetSession = createServerFn({ method: "POST" })
+  .validator((input: { clientSession: string }) => input)
+  .handler(async ({ data }): Promise<{ ok: boolean; sessions: number; places: number }> => {
+    const id = String(data?.clientSession ?? "");
+    if (!/^[0-9a-f-]{16,80}$/i.test(id)) return { ok: false, sessions: 0, places: 0 };
+    try {
+      const sql = await getSql();
+      const places = await sql<{ n: number }>`with d as (delete from bev_locations where client_session = ${id} returning 1) select count(*)::int as n from d`;
+      const sessions = await sql<{ n: number }>`with d as (delete from bev_sessions where client_session = ${id} returning 1) select count(*)::int as n from d`;
+      return { ok: true, sessions: sessions[0]?.n ?? 0, places: places[0]?.n ?? 0 };
+    } catch {
+      return { ok: false, sessions: 0, places: 0 };
+    }
+  });
 
 export type PublicEvent = { id: string; title: string; startsOn: string; place: string; canton: string | null; organiser: string; url: string; note: string | null };
 

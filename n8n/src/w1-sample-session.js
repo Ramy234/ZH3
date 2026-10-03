@@ -52,6 +52,14 @@ return [{ json: { body: {
   "I live at Seestrasse 4"
  ],
  "fromSample": true,
+ "gapCodes": ["H2.2", "H2.2", "H9.9", "buy now"],
+ "chargeSetup": { "main": "maybe", "backup": "no", "standing": "yes", "level": "test" },
+ "moveShown": "test-charging-week",
+ "outcomes": ["test-charging-week.done", "test-charging-week.bogus", "<script>.done"],
+ "canton": "ZH",
+ "settlement": "city",
+ "tenure": "rent",
+ "postcode": "8001",
  "answers": {
   "barrier": "charging",
   "carClass": "compact",

@@ -56,7 +56,28 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "select 'sessions' as metric, null::text as a, null::text as b, count(*)::int as n from bev_sessions_flat where stage = 'final' and not from_sample\nunion all\nselect 'barrier_ending', barrier, ending, count(*)::int from bev_sessions_flat where stage = 'final' and not from_sample and barrier is not null group by barrier, ending\nunion all\nselect 'unclear', unclear, null, count(*)::int from bev_sessions_flat where stage = 'final' and not from_sample and unclear is not null group by unclear\nunion all\nselect 'frame', keep_years::text, ending, count(*)::int from bev_sessions_flat where stage = 'final' and not from_sample and keep_years is not null group by keep_years, ending\nunion all\nselect 'cohort', cohort, null, count(*)::int from bev_sessions_flat where stage = 'final' and not from_sample and cohort is not null group by cohort\nunion all\nselect 'action', a, null, count(*)::int from bev_sessions_flat, unnest(actions) as a where stage = 'final' and not from_sample group by a\nunion all\nselect 'fact_opened', f, null, count(*)::int from bev_sessions_flat, unnest(facts_opened) as f where stage = 'final' and not from_sample group by f",
+        "query": "select id from bev_jobs where id = 'analytics-digest' and enabled",
+        "options": {}
+      },
+      "id": "job-switch",
+      "name": "Job switch",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        130,
+        200
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "Tj1nxebs0zLxWTBj",
+          "name": "bev Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select 'sessions' as metric, null::text as a, null::text as b, count(*)::int as n from bev_sessions_flat where stage = 'final' and not from_sample\nunion all\nselect 'barrier_ending', barrier, ending, count(*)::int from bev_sessions_flat where stage = 'final' and not from_sample and barrier is not null group by barrier, ending\nunion all\nselect 'unclear', unclear, null, count(*)::int from bev_sessions_flat where stage = 'final' and not from_sample and unclear is not null group by unclear\nunion all\nselect 'frame', keep_years::text, ending, count(*)::int from bev_sessions_flat where stage = 'final' and not from_sample and keep_years is not null group by keep_years, ending\nunion all\nselect 'cohort', cohort, null, count(*)::int from bev_sessions_flat where stage = 'final' and not from_sample and cohort is not null group by cohort\nunion all\nselect 'action', a, null, count(*)::int from bev_sessions_flat, unnest(actions) as a where stage = 'final' and not from_sample group by a\nunion all\nselect 'fact_opened', f, null, count(*)::int from bev_sessions_flat, unnest(facts_opened) as f where stage = 'final' and not from_sample group by f\nunion all\nselect 'gap', g, null, count(*)::int from bev_gap_sessions, unnest(gap_codes) as g group by g\nunion all\nselect 'move_outcome', o, null, count(*)::int from bev_gap_sessions, unnest(move_outcomes) as o group by o\nunion all\nselect 'classifier', via || ' / ' || band, lang || ', accepted ' || accepted_pct || '%', suggestions from bev_classifier_stats",
         "options": {}
       },
       "id": "counts",
@@ -76,7 +97,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// n8n node \"Digest\" (W5). Turns the counts into a short text for the team. Calculates nothing new.\n// Any cell under MIN is dropped, and the total is only shown when it is MIN or more. No row-level data is read.\nconst MIN = 5;\nconst rows = $input.all().map((i) => i.json);\nconst kept = rows.filter((r) => Number(r.n) >= MIN);\nconst hidden = rows.length - kept.length;\nconst by = (metric) => kept.filter((r) => r.metric === metric);\nconst line = (r) => `${r.a ?? '-'}${r.b ? ' / ' + r.b : ''}: ${r.n}`;\nconst total = rows.find((r) => r.metric === 'sessions');\nconst parts = [\n  `BEV Navigator digest. Counts of finished sessions; sample sessions are excluded; cells under ${MIN} are hidden (${hidden} hidden).`,\n  total && Number(total.n) >= MIN ? `Finished sessions: ${total.n}` : 'Finished sessions: fewer than ' + MIN,\n  '', 'Barrier / ending (ending uses payback within 8 years):', ...by('barrier_ending').map(line),\n  '', 'What was unclear (feedback taps):', ...by('unclear').map(line),\n  '', 'Year frame chosen / ending:', ...by('frame').map(line),\n  '', 'Facts opened:', ...by('fact_opened').map(line),\n  '', 'Result-page actions (sessions that did each at least once):', ...by('action').map(line),\n  '', 'Sittings (code from the link):', ...by('cohort').map(line),\n];\nreturn [{ json: { text: parts.join('\\n'), shown: kept.length, hidden } }];\n"
+        "jsCode": "// n8n node \"Digest\" (W5). Turns the counts into a short text for the team. Calculates nothing new.\n// Any cell under MIN is dropped, and the total is only shown when it is MIN or more. No row-level data is read.\nconst MIN = 5;\nconst rows = $input.all().map((i) => i.json);\nconst kept = rows.filter((r) => Number(r.n) >= MIN);\nconst hidden = rows.length - kept.length;\nconst by = (metric) => kept.filter((r) => r.metric === metric);\nconst line = (r) => `${r.a ?? '-'}${r.b ? ' / ' + r.b : ''}: ${r.n}`;\nconst total = rows.find((r) => r.metric === 'sessions');\nconst parts = [\n  `BEV Navigator digest. Counts of finished sessions; sample sessions are excluded; cells under ${MIN} are hidden (${hidden} hidden).`,\n  total && Number(total.n) >= MIN ? `Finished sessions: ${total.n}` : 'Finished sessions: fewer than ' + MIN,\n  '', 'Barrier / ending (ending uses payback within 8 years):', ...by('barrier_ending').map(line),\n  '', 'What was unclear (feedback taps):', ...by('unclear').map(line),\n  '', 'Year frame chosen / ending:', ...by('frame').map(line),\n  '', 'Facts opened:', ...by('fact_opened').map(line),\n  '', 'Result-page actions (sessions that did each at least once):', ...by('action').map(line),\n  '', 'Sittings (code from the link):', ...by('cohort').map(line),\n  '', 'Gaps touched (codes of the INFRAS barrier list; the content backlog follows the biggest ones):', ...by('gap').map(line),\n  '', 'Next move: what people did with it (done / not for me / unclear):', ...by('move_outcome').map(line),\n  '', 'Own-words box: suggestions and how often they were accepted:', ...by('classifier').map(line),\n];\nreturn [{ json: { text: parts.join('\\n'), shown: kept.length, hidden } }];\n"
       },
       "id": "digest",
       "name": "Digest",
@@ -97,6 +118,30 @@
         800,
         100
       ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into bev_job_runs (job_id, ok, rows_written, summary) values ('analytics-digest', $1, $2, $3) returning id",
+        "options": {
+          "queryReplacement": "={{ [true, $input.all().length, 'ran on schedule'] }}"
+        }
+      },
+      "id": "log-run",
+      "name": "Log run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1040,
+        100
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "Tj1nxebs0zLxWTBj",
+          "name": "bev Postgres"
+        }
+      },
+      "disabled": true
     }
   ],
   "connections": {
@@ -112,6 +157,17 @@
       ]
     },
     "Weekly": {
+      "main": [
+        [
+          {
+            "node": "Job switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Job switch": {
       "main": [
         [
           {
@@ -138,6 +194,11 @@
         [
           {
             "node": "Send digest to team (wire a mail node)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log run",
             "type": "main",
             "index": 0
           }

@@ -28,15 +28,15 @@ export function WithoutCard({ result }: { result: Result }) {
         After {last} years, total cost: keep {chf(keepTotal)}, switch {chf(swapTotal)}, without a car {chf(withoutTotal)}.
       </p>
       <p className="mt-2 text-xs leading-relaxed text-muted">
-        This only works if your ordinary week can be done by public transport and a few rented days. The check cannot know that. A half-fare card with single tickets can cost less if you travel little, so the travel card is the ceiling. The card price is reported by two news sites from the industry&apos;s announcement; it is a placeholder here. Not an offer and not advice.
+        This only works if your ordinary week can be done by public transport and a few rented days. The check cannot know that. A half-fare card with single tickets can cost less if you travel little, so the travel card is the ceiling. The card price is the federal release of 4 August 2026. Not an offer and not advice.
       </p>
       <a
         className="mt-1 inline-flex min-h-11 items-center text-sm font-medium text-spruce underline underline-offset-2"
-        href="https://www.mobilityblog.ch/oev-preise-2027-ga-steigt/"
+        href="https://www.wbf.admin.ch/de/newnsb/AU8_APWrkLN5RPPMOlCGk"
         target="_blank"
         rel="noopener noreferrer"
       >
-        Where the travel card price comes from (Mobilityblog, 4 August 2026)
+        Where the travel card price comes from (federal release, 4 August 2026)
       </a>
     </div>
   );
