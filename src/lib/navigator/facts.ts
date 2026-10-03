@@ -35,10 +35,10 @@ export const FACTS: Record<FactKey, Fact> = {
   "mobile-charger": {
     key: "mobile-charger",
     title: "Charging without rebuilding the garage",
-    body: "Some multi-unit buildings look at a mobile DC charger on an existing power line, instead of a new supply in the underground garage. Designwerk, in Winterthur, makes a 22 kW mobile DC charger that plugs into a 3-phase 32 A socket. The maker lists garages, dealerships and fleets as its use, so whether it fits a residential garage is a question for the building. Whether it is allowed depends on that building’s connection and the other owners. It is not a general right, and it is not in the year cost until there is a quote.",
+    body: "Some multi-unit buildings look at a mobile DC charger on an existing power line, instead of a new supply in the underground garage. Designwerk, in Winterthur, makes a mobile DC charger (model 22-920, listed with 21 kW DC output) that plugs into a 3-phase 32 A socket. The maker lists garages, dealerships and fleets as its use, so whether it fits a residential garage is a question for the building. Whether it is allowed depends on that building’s connection and the other owners. It is not a general right, and it is not in the year cost until there is a quote.",
     source: "Designwerk product page for the maker's own description. Project meeting note for the idea. Not confirmed for a residential garage.",
     url: "https://www.designwerk.com/en/mobile-charger-22-920/",
-    linkName: "Designwerk: mobile DC charger 22 kW (maker's page)",
+    linkName: "Designwerk: mobile DC charger 22-920 (maker's page)",
     as_of: "2026-10-03",
     status: "unverified",
   },
@@ -163,8 +163,8 @@ export const FACT_VIEW: Record<FactKey, FactView> = {
   "mobile-charger": {
     kicker: "An idea worth knowing. Not confirmed for a home. Not in the year cost.",
     figure: {
-      value: "22 kW",
-      caption: "What one maker lists: a mobile DC charger from Designwerk (Winterthur) that plugs into a 3-phase 400 V, 32 A socket. The maker names garages, dealerships and fleets as its use. Price not published on the page.",
+      value: "21 kW",
+      caption: "What one maker lists: a mobile DC charger, model 22-920, from Designwerk (Winterthur) that plugs into a 3-phase 400 V, 32 A socket. The maker names garages, dealerships and fleets as its use. Price not published on the page.",
     },
     lines: [
       { label: "The idea", text: "A charger that comes to the car and plugs into the building's existing power line, instead of rebuilding the garage." },
@@ -172,7 +172,7 @@ export const FACT_VIEW: Record<FactKey, FactView> = {
       { label: "This check", text: "It stays out of the francs until there is a quote for your building." },
     ],
     links: [
-      { name: "Designwerk: mobile DC charger 22 kW", href: "https://www.designwerk.com/en/mobile-charger-22-920/", note: "The maker's own page. A manufacturer, so not a neutral source." },
+      { name: "Designwerk: mobile DC charger 22-920", href: "https://www.designwerk.com/en/mobile-charger-22-920/", note: "The maker's own page. A manufacturer, so not a neutral source." },
       { name: "Charging in a rented building, EnergieSchweiz", href: "https://www.energieschweiz.ch/ladeinfrastruktur/werkzeuge/ladeinfrastruktur-in-mietobjekten/", note: "Neutral federal guidance on asking a landlord or owners." },
     ],
   },
@@ -316,7 +316,7 @@ export const FACT_VIEW: Record<FactKey, FactView> = {
     kicker: "Every connected car, not only electric ones. No brand ranking.",
     links: [
       { name: "SRF: how car makers see what we do", href: "https://www.srf.ch/news/schweiz/datenkrake-auto-wie-uns-autobauer-ausspaehen", note: "Swiss broadcaster, 21 February 2017, on an ADAC examination of four cars. Old, and not a ranking." },
-      { name: "Mozilla Foundation: cars and privacy, 2023", href: "https://www.mozillafoundation.org/en/privacynotincluded/articles/its-official-cars-are-the-worst-product-category-we-have-ever-reviewed-for-privacy/", note: "A non-profit's review of 25 brands' privacy terms. Terms, not measured traffic. Outside Switzerland." },
+      { name: "Carscoops, 10 Sep 2023: a press report on the Mozilla study", href: "https://www.carscoops.com/2023/09/the-automotive-industry-is-the-worst-consumer-product-sector-for-data-privacy-study-claims/", note: "A car news site that reported the Mozilla Foundation's review of 25 brands' privacy terms. Terms, not measured traffic. Outside Switzerland. Mozilla's own page has moved to its Nothing Personal magazine, so the original article is no longer at its old address." },
       { name: "CNIL: location data from connected cars, June 2026", href: "https://www.cnil.fr/fr/recommandation-vehicules-connectes-localisation", note: "The French data-protection authority, in French. Guidance, not a test. Outside Switzerland." },
       { name: "Quebec: risks and ethical issues of connected vehicles", href: "https://www.ethique.gouv.qc.ca/publications/les-risques-et-enjeux-ethiques-des-vehicules-connectes/", note: "An expert report of August 2026 listing twelve issues. A risk map, not a measurement. Outside Switzerland." },
     ],

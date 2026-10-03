@@ -19,11 +19,11 @@ function allLinks(): L[] {
 }
 
 const HOSTS = [
-  "energieschweiz.ch", "tcs.ch", "admin.ch", "elcom.admin.ch", "energiefranken.ch", "iea.org", "bnef.com", "srf.ch", "mozillafoundation.org",
+  "energieschweiz.ch", "tcs.ch", "admin.ch", "elcom.admin.ch", "energiefranken.ch", "iea.org", "bnef.com", "srf.ch", "mozillafoundation.org", "carscoops.com",
   "cnil.fr", "ethique.gouv.qc.ca", "designwerk.com", "mobility.ch", "electrive.com", "zurich.ch", "swiss-emobility.ch", "bfe.admin.ch",
 ];
 /** A company, not a public body or a test. Its link may only appear when the note says what it is. */
-const COMPANY = ["designwerk.com", "mobility.ch", "zurich.ch", "electrive.com", "bnef.com"];
+const COMPANY = ["designwerk.com", "mobility.ch", "zurich.ch", "electrive.com", "bnef.com", "carscoops.com"];
 
 test("links: every link is https and from a host we have looked at", () => {
   for (const l of allLinks()) {

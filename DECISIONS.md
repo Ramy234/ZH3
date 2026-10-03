@@ -90,3 +90,9 @@
 - **Why not a federal figure.** A federal monthly series (BFS or BFE) was searched for and none was reachable as a clean file, so the TCS table remains the one dated, reproducible source. Replace it with the federal monthly average when that file is wired (W3).
 - **Effect.** Keeping a petrol car costs less per year, so payback moves later: the worked example goes from year 14 to year 17 and keeping costs 3,865 a year instead of 4,203. Headlines did not change in any golden scenario. The golden numbers were re-pinned from the model.
 - **Version.** Dataset `v-2026-10-03-0003` (migration 0022). 0021 stays frozen. MODEL stays `2026-10-03-r4` because no formula changed.
+
+## 3 Oct 2026 (evening): every external link opened again
+
+- **22 of 24 links opened today with the title and date the app claims; one had moved (Mozilla) and one refuses automated reading (ElCom).** (BNEF 9 Dec 2025, Aviloo 8 Sep 2026, ElCom release 8 Sep 2026, Federal Council 19 Jun 2026 and 26 Sep 2025, BFE study 6 Jan 2025, BAFU 27 Apr 2023, CNIL 30 Jun 2026, Comparis 19 Aug 2025 with the 70 % figure, Quebec 18 Aug 2026, SRF 21 Feb 2017, EnergieSchweiz tools, Energiefranken, Mobility, Z-Volt, TCS table). The ElCom price site (strompreis.elcom.admin.ch) was not re-checked. Links that only build a query (LINDAS, openplzapi) were not opened.
+- **One dead link replaced.** The Mozilla "cars are the worst product category" article moved when Privacy Not Included closed in August 2026. The sheet now links a press report of the same study (Carscoops, 10 Sep 2023) and says the original has moved.
+- **One wording fixed.** The mobile-charger sheet said "22 kW". The maker's page (model 22-920) lists 21 kW DC output. Migration 0023 updates the stored fact.
