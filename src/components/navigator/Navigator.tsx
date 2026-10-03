@@ -944,10 +944,11 @@ function Header({
   const [openYear, setOpenYear] = useState(false);
   const yrs = soFarCtx?.result.paybackYears ?? null;
   const yearReady = Boolean(soFarCtx?.result.answers.carClass && soFarCtx?.result.answers.fuel && soFarCtx?.result.answers.km);
-  const soFarChip = !yearReady ? "Year ?" : yrs == null ? "No year" : `Year ${Math.max(1, Math.ceil(yrs))}`;
+  // The chip says what the number is, so it needs no key: the extra price is repaid by this year.
+  const soFarChip = !yearReady ? "Repaid in year ?" : yrs == null ? "No payback" : `Repaid in year ${Math.max(1, Math.ceil(yrs))}`;
   const soFarLabel = !yearReady
     ? "Years to cover the extra price. Waiting for your answers. Tap to read why."
-    : `Years to cover the extra price: ${soFarChip}. Tap to open the three checkpoints.`;
+    : `Years to cover the extra price: ${yrs == null ? "none on these figures" : Math.max(1, Math.ceil(yrs))}. Tap to open the three checkpoints.`;
   // One segment per question. The result fills the whole bar. The five-node rail stays on the desktop side panel only.
   const filled = step === "result" ? FLOW.length : index + 1;
   void planSent;
