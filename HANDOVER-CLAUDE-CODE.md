@@ -140,8 +140,8 @@ Hard rules. Keep these unless Martin explicitly changes one.
 
 **Open items from the last review. Resolve them with Martin, do not decide alone:**
 
-- **Hybrid litre price.** The pump price for a hybrid is 1.48 CHF, although a hybrid buys petrol. Fixing it adds a reason to switch, so it is Martin's decision.
-- **The 78 % range figure** (gfs.bern for auto-schweiz, 13 Sep 2025) is not in the release text. Its base may be non-buyers only. Verify it against the chart or drop the number.
+- **Hybrid litre price.** Closed on 3 Oct 2026 at Martin's request: a hybrid pays the petrol litre price (`pumpFor` in `model.ts`). The old 1.48 cell is in earlier versions only.
+- **The range figure** (gfs.bern for auto-schweiz, 13 Sep 2025): closed on 3 Oct 2026. The page now says 79 % of non-buyers and names the commissioner (`facts.ts`, migration 0014). The report summary prints 78; keep the difference visible if it is quoted.
 - **`bev_notes`** contains old free-text rows. They should be read once and the table dropped.
 - **ElCom year.** It is hard-coded to 2026. The 2027 prices exist (median 26.5 Rp, ElCom 8 Sep 2026). Make the year roll on 1 January.
 - **The year frame up to 32** flips the title in most cases, for example to "covered in year 18". It is now labelled honestly. Decide with Martin whether to:

@@ -15,6 +15,8 @@ export const ENUMS = {
   worry: ["tenant", "winter", "refuse"],
   unclear: ["km", "payback", "price", "wording"],
   persona: ["urbanRenter", "familyHome", "distance", "cost", "skeptic", "occasional"],
+  via: ["tap", "words"],
+  action: ["fold_why", "fold_evidence", "share", "picture", "reminder", "try_lever"],
   fact: ["two-for-one", "mobile-charger", "battery", "workplace", "public-tariff", "tenant-right", "winter", "not-for-me", "canton-tax", "local-grant"],
 };
 export const CANTONS = ["ZH", "BE", "LU", "UR", "SZ", "OW", "NW", "GL", "ZG", "FR", "SO", "BS", "BL", "SH", "AR", "AI", "SG", "GR", "AG", "TG", "TI", "VD", "VS", "NE", "GE", "JU"];

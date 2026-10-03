@@ -9,6 +9,8 @@ import { wf as w1, INSERT_SQL as W1_INSERT } from "../n8n/build-w1.mjs";
 import { wf as w3, INSERT_SQL as W3_INSERT } from "../n8n/build-w3.mjs";
 import { wf as w4, URLS_SQL, PREVIOUS_SQL, INSERT_SQL as W4_INSERT } from "../n8n/build-w4.mjs";
 import { wf as w5 } from "../n8n/build-w5.mjs";
+import { wf as w6 } from "../n8n/build-w6.mjs";
+import { evaluate as evalWords } from "./words-eval.mjs";
 import { DIGEST_SQL } from "../n8n/lib/w5-sql.mjs";
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
@@ -34,7 +36,7 @@ async function database() {
 }
 
 test("closed lists: the app's types, W1's whitelist and the shared list agree", () => {
-  const one = src("typesafe-choice.js").match(/const ONE_OF = (\{[\s\S]*?\n\});/)[1];
+  const one = src("w1-typesafe-choice.js").match(/const ONE_OF = (\{[\s\S]*?\n\});/)[1];
   const inNode = new Function(`return ${one}`)();
   assert.deepEqual(inNode, ENUMS);
   const model = read("src/lib/navigator/model.ts");
@@ -52,14 +54,14 @@ test("canton order matches the app's BFS numbers", () => {
 });
 
 test("every workflow: inactive, unique names, valid wiring, one credential, no secret text, writes off", () => {
-  for (const wf of [w1, w3, w4, w5]) {
+  for (const wf of [w1, w3, w4, w5, w6]) {
     assert.equal(wf.active, false, wf.name);
     assert.equal(wf.settings.saveDataSuccessExecution, "none", wf.name);
     const names = wf.nodes.map((n) => n.name);
     assert.equal(new Set(names).size, names.length, wf.name);
     for (const [from, c] of Object.entries(wf.connections)) {
       assert.ok(names.includes(from), `${wf.name}: ${from}`);
-      for (const out of c.main) for (const t of out) assert.ok(names.includes(t.node), `${wf.name}: ${t.node}`);
+      for (const out of Object.values(c).flat()) for (const t of out) assert.ok(names.includes(t.node), `${wf.name}: ${t.node}`);
     }
     for (const n of wf.nodes.filter((x) => x.type.endsWith("postgres"))) {
       assert.deepEqual(n.credentials, { postgres: { id: "Tj1nxebs0zLxWTBj", name: "bev Postgres" } }, n.name);
@@ -73,11 +75,14 @@ test("every workflow: inactive, unique names, valid wiring, one credential, no s
 });
 
 test("W1: junk is dropped, the row lands, and the flat view reads it as columns", async () => {
-  const sample = run(src("sample-session.js"))[0];
-  const a = run(src("typesafe-choice.js"), [sample]);
+  const sample = run(src("w1-sample-session.js"))[0];
+  const a = run(src("w1-typesafe-choice.js"), [sample]);
   const b = run(src("code-price.js"), a);
   const [row] = run(src("switch-toggles.js"), b);
-  assert.doesNotMatch(JSON.stringify(row), /<script|postcode|8001/i);
+  assert.doesNotMatch(JSON.stringify(row), /<script|postcode|8001|buy_now/i);
+  assert.equal(row.payload.cohort, "i3");
+  assert.deepEqual(row.payload.actions, ["share", "fold_why"]);
+  assert.equal(row.payload.barrierVia, "tap");
   const db = await database();
   await db.query(W1_INSERT, [row.clientSession, row.stage, JSON.stringify(row.payload)]);
   await db.exec("insert into bev_sessions select * from bev_sessions_test");
@@ -85,15 +90,30 @@ test("W1: junk is dropped, the row lands, and the flat view reads it as columns"
   assert.equal(flat.stage, "final");
   assert.equal(flat.from_sample, row.payload.fromSample);
   assert.equal(flat.barrier, row.payload.answers.barrier);
+  assert.equal(flat.cohort, "i3");
+  assert.deepEqual(flat.actions, ["share", "fold_why"]);
+  assert.equal(flat.barrier_via, "tap");
   assert.equal(flat.annual_swap, row.payload.nodes.find((n) => n.id === "price").output.annualSwap);
   assert.ok(["covered_within_8", "keep_or_later"].includes(flat.ending));
 });
 
+test("flat view: a result page that saved three times counts once, with the latest actions", async () => {
+  const db = await database();
+  const save = (id, stage, actions, at) => db.query("insert into bev_sessions (id, client_session, stage, payload, created_at) values ($1, 'cs-one', $2, $3, $4)", [id, stage, JSON.stringify({ stage, fromSample: false, cohort: "i1", actions, answers: { barrier: "cost" }, nodes: [] }), at]);
+  await save("a", "mid", [], "2026-10-03T10:00:00Z");
+  await save("b", "final", [], "2026-10-03T10:01:00Z");
+  await save("c", "final", ["fold_why"], "2026-10-03T10:02:00Z");
+  await save("d", "final", ["fold_why", "share"], "2026-10-03T10:03:00Z");
+  const rows = (await db.query("select stage, actions from bev_sessions_flat order by stage")).rows;
+  assert.equal(rows.length, 2);
+  assert.deepEqual(rows.find((r) => r.stage === "final").actions, ["fold_why", "share"]);
+});
+
 test("W1: unknown stage, session id and switch key are refused (the 400 path)", () => {
-  const sample = run(src("sample-session.js"))[0];
-  assert.throws(() => run(src("typesafe-choice.js"), [{ body: { ...sample.body, stage: "other" } }]), /Bad stage/);
-  assert.throws(() => run(src("typesafe-choice.js"), [{ body: { ...sample.body, clientSession: "x" } }]), /Bad session/);
-  const a = run(src("typesafe-choice.js"), [sample]);
+  const sample = run(src("w1-sample-session.js"))[0];
+  assert.throws(() => run(src("w1-typesafe-choice.js"), [{ body: { ...sample.body, stage: "other" } }]), /Bad stage/);
+  assert.throws(() => run(src("w1-typesafe-choice.js"), [{ body: { ...sample.body, clientSession: "x" } }]), /Bad session/);
+  const a = run(src("w1-typesafe-choice.js"), [sample]);
   a[0].raw.toggles.invented = true;
   assert.throws(() => run(src("switch-toggles.js"), run(src("code-price.js"), a)), /Unexpected switch/);
   assert.equal(w1.nodes.filter((n) => n.onError === "continueErrorOutput").length, 3);
@@ -106,10 +126,10 @@ test("W5: the digest hides cells under 5 and counts the ending from paybackYears
   let n = 0;
   const add = async (barrier, payback, extra = {}, sample = false, stage = "final") => {
     n += 1;
-    const payload = { stage, fromSample: sample, claimsOpened: extra.facts ?? [], answers: { barrier, unclear: extra.unclear ?? null, keepYears: extra.keepYears ?? null }, nodes: [price(payback)] };
+    const payload = { stage, fromSample: sample, claimsOpened: extra.facts ?? [], cohort: extra.cohort ?? null, actions: extra.actions ?? [], answers: { barrier, unclear: extra.unclear ?? null, keepYears: extra.keepYears ?? null }, nodes: [price(payback)] };
     await db.query("insert into bev_sessions (id, client_session, stage, payload) values ($1, $2, $3, $4)", [`id${n}`, `cs${n}`, stage, JSON.stringify(payload)]);
   };
-  for (let i = 0; i < 5; i++) await add("charging", 6, { facts: ["battery"], unclear: "payback" });
+  for (let i = 0; i < 5; i++) await add("charging", 6, { facts: ["battery"], unclear: "payback", cohort: "i1", actions: ["share", "fold_why"] });
   for (let i = 0; i < 5; i++) await add("charging", 12);
   for (let i = 0; i < 4; i++) await add("cost", null);
   await add("trips", 3, {}, true);
@@ -121,6 +141,8 @@ test("W5: the digest hides cells under 5 and counts the ending from paybackYears
   assert.doesNotMatch(out.text, /cost \/ keep_or_later/);
   assert.doesNotMatch(out.text, /trips/);
   assert.match(out.text, /battery: 5/);
+  assert.match(out.text, /share: 5/);
+  assert.match(out.text, /i1: 5/);
   assert.equal(out.hidden > 0, true);
   assert.doesNotMatch(out.text, /cs\d|id\d/);
 });
@@ -228,4 +250,49 @@ test("the checked-in JSON files are what the builders produce", () => {
   same("w3-reference-refresh.workflow.json", w3);
   same("w4-source-freshness.workflow.json", w4);
   same("w5-analytics-digest.workflow.json", w5);
+  same("w6-words-classifier.workflow.json", w6);
+});
+
+test("W6: text in, one closed name out, no text anywhere, AI step off and falling back to rules", async () => {
+  const words = "I rent a flat and there is no plug in the garage";
+  const checked = run(src("w6-input.js"), [{ body: { words: `  ${words}  ` } }]);
+  assert.equal(checked[0].words, words);
+  assert.throws(() => run(src("w6-input.js"), [{ body: { words: "x" } }]), /Too short/);
+  assert.throws(() => run(src("w6-input.js"), [{ body: { words: "y".repeat(281) } }]), /Too long/);
+  assert.throws(() => run(src("w6-input.js"), [{ body: { words: 42 } }]), /Too short/);
+  const ruled = run(src("w6-rules.js"), checked);
+  assert.equal(ruled[0].rules.barrier, "charging");
+  assert.equal(run(src("w6-flag.js"), ruled)[0].ai, false);
+  const decide = (extract) => run(src("w6-decide.js"), [{}], { Rules: ruled, ...(extract ? { "Extract barrier": extract } : {}) })[0];
+  const off = decide(null);
+  assert.deepEqual([off.barrier, off.via], ["charging", "rules"]);
+  assert.doesNotMatch(JSON.stringify(off), /plug|garage|rent/);
+  assert.equal(decide([{ output: { barrier: "cost", confidence: 0.9 } }]).via, "ai");
+  for (const bad of [{ barrier: "buy now", confidence: 0.9 }, { barrier: "cost", confidence: 1.4 }, { barrier: "cost", confidence: "high" }, { barrier: "cost", confidence: 0.4 }, null]) {
+    const out = decide([{ output: bad }]);
+    assert.deepEqual([out.barrier, out.via], ["charging", "rules"], JSON.stringify(bad));
+  }
+  assert.equal(run(src("w6-rules.js"), [{ words: "Please help me arrange a lease" }])[0].rules.barrier, "cost");
+  assert.equal(run(src("w6-rules.js"), [{ words: "Please help me arrange it" }])[0].rules.barrier, "none");
+});
+
+test("W6: the workflow keeps no execution data, has no database node and starts with the AI nodes off", () => {
+  assert.equal(w6.settings.saveDataErrorExecution, "none");
+  assert.equal(w6.settings.saveManualExecutions, false);
+  assert.equal(w6.nodes.filter((n) => /postgres|httpRequest/.test(n.type)).length, 0);
+  for (const name of ["Extract barrier", "Chat model"]) assert.equal(w6.nodes.find((n) => n.name === name).disabled, true, name);
+  assert.match(src("w6-flag.js"), /const ai = false;/);
+  assert.equal(w6.connections["Chat model"].ai_languageModel[0][0].node, "Extract barrier");
+  assert.ok(w6.nodes.find((n) => n.name === "Chat model").credentials === undefined);
+  assert.equal(w6.connections["AI on?"].main[1][0].node, "Decide");
+});
+
+test("W6 evaluation: the rules stay above the floor on the fixed set", async () => {
+  const run1 = (words) => {
+    const [{ json }] = new Function("$input", `return (function(){${src("w6-rules.js")}})()`)({ first: () => ({ json: { words } }) });
+    return { ...json.rules, via: "rules" };
+  };
+  const r = await evalWords(async (w) => run1(w));
+  assert.ok(r.accuracy >= 0.8, `accuracy ${r.accuracy}`);
+  assert.ok(r.sureAccuracy >= 0.95, `confident accuracy ${r.sureAccuracy}`);
 });

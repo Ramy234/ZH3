@@ -14,5 +14,7 @@ const parts = [
   '', 'What was unclear (feedback taps):', ...by('unclear').map(line),
   '', 'Year frame chosen / ending:', ...by('frame').map(line),
   '', 'Facts opened:', ...by('fact_opened').map(line),
+  '', 'Result-page actions (sessions that did each at least once):', ...by('action').map(line),
+  '', 'Sittings (code from the link):', ...by('cohort').map(line),
 ];
 return [{ json: { text: parts.join('\n'), shown: kept.length, hidden } }];

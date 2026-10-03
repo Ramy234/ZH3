@@ -1,0 +1,201 @@
+{
+ "note": "Synthetic sentences written by the project team, not collected from people. Rules were written by the same author, so rules accuracy here is optimistic. Replace or extend with real phrasing from a sitting before relying on it.",
+ "items": [
+  {
+   "text": "I rent a flat and the landlord will never let me put a wallbox in the garage",
+   "label": "charging"
+  },
+  {
+   "text": "There's no plug anywhere near where I park overnight",
+   "label": "charging"
+  },
+  {
+   "text": "our tiefgarage is shared by 40 flats and nobody wants to pay for charging points",
+   "label": "charging"
+  },
+  {
+   "text": "I park on the street so I couldn't charge it at home",
+   "label": "charging"
+  },
+  {
+   "text": "Wo soll ich laden? Ich habe nur einen Parkplatz im Hof",
+   "label": "charging"
+  },
+  {
+   "text": "My building association has been discussing this for two years and nothing happens",
+   "label": "charging"
+  },
+  {
+   "text": "I'd have to run a cable out of the window",
+   "label": "charging"
+  },
+  {
+   "text": "We only have a spot in a communal car park, with no electricity there",
+   "label": "charging"
+  },
+  {
+   "text": "They are simply too expensive for what I earn",
+   "label": "cost"
+  },
+  {
+   "text": "I'm scared it will be worth nothing in five years",
+   "label": "cost"
+  },
+  {
+   "text": "The monthly lease alone would eat my budget",
+   "label": "cost"
+  },
+  {
+   "text": "Das Auto kostet viel mehr als mein jetziges",
+   "label": "cost"
+  },
+  {
+   "text": "I can't afford to spend 45,000 francs on a car",
+   "label": "cost"
+  },
+  {
+   "text": "What I'd lose when I sell it again worries me most",
+   "label": "cost"
+  },
+  {
+   "text": "My petrol car is paid off and a new one means a big loan",
+   "label": "cost"
+  },
+  {
+   "text": "The sticker price, mainly",
+   "label": "cost"
+  },
+  {
+   "text": "Money. It always comes down to money",
+   "label": "cost"
+  },
+  {
+   "text": "We drive to Italy every summer and I don't trust the range on the Gotthard",
+   "label": "trips"
+  },
+  {
+   "text": "I tow a caravan in the holidays",
+   "label": "trips"
+  },
+  {
+   "text": "Long drives with the kids, stopping every two hours, no thanks",
+   "label": "trips"
+  },
+  {
+   "text": "Reichweite im Winter auf der Autobahn",
+   "label": "trips"
+  },
+  {
+   "text": "Once a month I drive 400 km to my parents and back the same day",
+   "label": "trips"
+  },
+  {
+   "text": "I take the car to the mountains for skiing every other weekend",
+   "label": "trips"
+  },
+  {
+   "text": "I'm worried about getting stuck far from a fast charger on a motorway trip",
+   "label": "trips"
+  },
+  {
+   "text": "Ferien in Frankreich mit dem Wohnwagen",
+   "label": "trips"
+  },
+  {
+   "text": "I don't know how long the battery really lasts",
+   "label": "trust"
+  },
+  {
+   "text": "What happens to the battery in the cold?",
+   "label": "trust"
+  },
+  {
+   "text": "Technology is changing so fast that I'd rather wait",
+   "label": "trust"
+  },
+  {
+   "text": "I've heard they catch fire and nobody can repair them cheaply",
+   "label": "trust"
+  },
+  {
+   "text": "Ich vertraue der Technik noch nicht",
+   "label": "trust"
+  },
+  {
+   "text": "A used electric car feels like buying a mystery box",
+   "label": "trust"
+  },
+  {
+   "text": "My neighbour's one broke down twice in a year",
+   "label": "trust"
+  },
+  {
+   "text": "I'd like proof that it will still be fine in ten years",
+   "label": "trust"
+  },
+  {
+   "text": "I'm not sure, honestly a bit of everything",
+   "label": "unsure"
+  },
+  {
+   "text": "No idea what is stopping me",
+   "label": "unsure"
+  },
+  {
+   "text": "Maybe the cost and the charging, I can't say which is bigger",
+   "label": "unsure"
+  },
+  {
+   "text": "Weiss nicht, ich habe mich noch nie damit beschäftigt",
+   "label": "unsure"
+  },
+  {
+   "text": "I just don't know",
+   "label": "unsure"
+  },
+  {
+   "text": "Hard to say, perhaps all of it",
+   "label": "unsure"
+  },
+  {
+   "text": "unsure",
+   "label": "unsure"
+  },
+  {
+   "text": "Keine Ahnung",
+   "label": "unsure"
+  },
+  {
+   "text": "I already have an electric car",
+   "label": "none"
+  },
+  {
+   "text": "What's the weather like in Zurich this week?",
+   "label": "none"
+  },
+  {
+   "text": "Please help me with my tax declaration",
+   "label": "none"
+  },
+  {
+   "text": "nothing really",
+   "label": "none"
+  },
+  {
+   "text": "hello",
+   "label": "none"
+  },
+  {
+   "text": "I would love one, there is nothing stopping me",
+   "label": "none"
+  },
+  {
+   "text": "My sister is getting married in June",
+   "label": "none"
+  },
+  {
+   "text": "Can you recommend a good restaurant?",
+   "label": "none"
+  }
+ ]
+}

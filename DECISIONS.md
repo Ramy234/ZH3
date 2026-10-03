@@ -15,8 +15,16 @@
 - BFE charging data has postcodes, not cantons, so `bev_reference` holds counts per postcode (one JSON text row per refresh). The app does not read it yet.
 - BFS pump-price file: layout not confirmed; the parser refuses to guess, and the branch stays idle until a URL is pasted.
 - Not done: cohort in the digest (the app sends none yet), a mail node for W2/W4/W5 (placeholders), the 3-layer redesign.
-- Design stage 1 and 2 (3 Oct 2026): start fits one phone screen; progress bar has one segment per question; each screen opens at its top; the result keeps the decision, the counterfactual card, next steps and the switches on the page, and puts the reasoning and the evidence in two closed folds; a sticky Share / Adjust / Details bar. Result page 8,400 -> about 4,500 px at 360 px.
-- `counterfactual.ts` adds no figure: the window is `RATES.horizon` and each lever is a re-run of `evaluate()`.
-- "Your ordinary week" strip is NOT built. It would need battery sizes the dataset does not hold, and a split of kilometres across days that no source gives. Add `bev_dataset` rows for battery size first, then build it.
-- Cloud-side checks ran against a copy without `.grok/`; 8 Grok-template tests fail there for that reason only. They pass in the repo.
-- Design stage 3 (3 Oct 2026): share card (a PNG drawn in the browser; no name, place or postcode; nothing uploaded) and a six-month `.ics` reminder (a date and a sentence, no answers); answer chips above each step to jump back; titles take focus on a new screen; the verdict lines get a bold lead and a quiet rest (same words); the km hint keeps its first two sentences and the rest sits under "Why a band?"; the "year waits" strip is two lines until a year exists; the desktop five-node rail is hidden unless the address has `?workflow=1`.
+
+## 3 October 2026: cohort, actions, words box, ordinary week
+
+- Hybrid pump price: a hybrid pays the petrol litre price. The `PUMP.hybrid` cell is kept at 1.79 only so the sheet row exists. `pumpFor()` is the one place that decides. MODEL `2026-10-03-r3`; the hybrid SUV golden was re-pinned deliberately (keep 4844, swap 3697, saving 1147).
+- Winter range fact corrected to 79 % of non-buyers, with the commissioner named. Migration 0014 updates the stored fact (apply after 0010 and the facts table exist).
+- Battery sizes (kWh per class: 40, 58, 66, 77, 75) are placeholders in `SPECS`/the dataset. The ordinary-week strip uses them. Martin or the team confirm them in the sheet.
+- Cohort code: `?s=i1` in the link, letters then one or two digits, stored as `cohort`. It names a sitting, never a person. Anything else is dropped.
+- Actions: a closed list of six things done on the result page (`ACTIONS`), stored as a set. No timing, no order, no text.
+- W1 has its own whitelist copy (`n8n/src/w1-typesafe-choice.js`) and sample (`w1-sample-session.js`) so the live draft's files stay identical to Martin's export (`node n8n/build.mjs --check`).
+- `bev_sessions_flat` now returns one row per client session and stage (the latest). The app saves again whenever the result page changes and the table is insert-only, so counting raw rows would have counted people several times (W5 included). New columns: cohort, actions, barrier_via, list_price, resale_price.
+- `/sittings` is internal: off unless `SITTINGS_KEY` is set on the server, key sent in the request body, counts only, cells under 5 hidden, `noindex`. The checklist ticks stay in the browser.
+- W6 (words classifier) is built, inactive, with the AI step off (`ai = false` in "AI flag", AI nodes disabled, no credential). The rules answer alone. The app box appears only with `WORDS_BOX=on` and `WORDS_URL`. The text is never stored (no table, no execution data, not in the reply), and only `barrierVia: "words"` is kept, after the person confirms by tap. Evaluation: `node scripts/words-eval.mjs`, 49 synthetic sentences, rules 82 % overall and 100 % when confident (optimistic: same author). Martin decides whether it goes live.
+- Short step transition (180 ms, off for reduced motion).

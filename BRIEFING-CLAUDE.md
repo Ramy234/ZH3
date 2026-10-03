@@ -244,7 +244,7 @@ Recorded here so the next reader does not undo it. Details and sources: `REVIEW-
 - Rows now carry `model` (arithmetic version) and `fromSample` (the worked example was touched, then stored).
 - Glarus decided on 3 May 2026 that electric cars pay from 1 January 2027 (25 percent off until 2030). Solothurn’s parliament decided on 6 May 2026. The February 2026 table still applies to every year in the sum; the tax line says so for GL and SO.
 - A federal levy on electric cars from 2030 was proposed on 26 September 2025 (about 5.4 rappen a km, or 22.8 rappen a kWh; consultation closed 9 January 2026). Named in the fuel line, not in the francs.
-- Open, not changed: the hybrid litre price (1.48) is lower than petrol although a hybrid buys petrol; the 78 percent range figure could not be found in the text of the gfs.bern release.
+- Closed on 3 October 2026: the hybrid now pays the petrol litre price (`pumpFor`, model `2026-10-03-r3`; the 1.48 cell is gone). The winter fact now says 79 percent of non-buyers (the report summary prints 78; 1,002 voters; auto-schweiz commissioned it), see migration 0014.
 
 
 ### n8n, 2 October 2026 (evening)

@@ -73,6 +73,11 @@ select
   j.p #>> '{answers,worry}' as worry,
   j.p #>> '{answers,unclear}' as unclear,
   (j.p #>> '{answers,keepYears}')::int as keep_years,
+  (j.p #>> '{answers,listPrice}')::int as list_price,
+  (j.p #>> '{answers,resalePrice}')::int as resale_price,
+  j.p ->> 'cohort' as cohort,
+  coalesce(j.p ->> 'barrierVia', 'tap') as barrier_via,
+  array(select jsonb_array_elements_text(coalesce(j.p -> 'actions', '[]'::jsonb))) as actions,
   cls.o #>> '{situation}' as situation,
   pr.o ->> 'model' as model,
   pr.o ->> 'dataset' as dataset,
@@ -84,7 +89,12 @@ select
   case when (pr.o ->> 'paybackYears') is not null and (pr.o ->> 'paybackYears')::numeric <= 8
        then 'covered_within_8' else 'keep_or_later' end as ending,
   array(select jsonb_array_elements_text(coalesce(j.p -> 'claimsOpened', '[]'::jsonb))) as facts_opened
-from bev_sessions s
+from (
+  -- The app appends a new row whenever the result page changes (a fold opened, a lever tried), and the table is insert-only.
+  -- One sitting of one person is one row here: the latest per client_session and stage. Counts must never see the earlier ones.
+  select distinct on (client_session, stage) * from bev_sessions
+  order by client_session, stage, created_at desc, id desc
+) s
 cross join lateral (select s.payload::jsonb as p) j
 left join lateral (select e -> 'output' as o from jsonb_array_elements(j.p -> 'nodes') e where e ->> 'id' = 'price' limit 1) pr on true
 left join lateral (select e -> 'output' as o from jsonb_array_elements(j.p -> 'nodes') e where e ->> 'id' = 'classify' limit 1) cls on true;

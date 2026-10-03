@@ -1,0 +1,348 @@
+{
+  "name": "W6 BEV words classifier (optional, AI off)",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "none",
+    "saveManualExecutions": false,
+    "saveExecutionProgress": false
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "content": "W6: \"say it in your own words\" classifier. NOT active. Optional experiment; the AI part is off.\n\nThe app sends one short text. W6 answers with exactly one of charging | cost | trips | trust | unsure | none, a confidence, and whether rules or AI chose it. The person always confirms or corrects it by tap. It never writes advice, a number or a source.\n\nThe text is used for this run only: it is not stored in a table, not in the reply, and this workflow keeps no execution data (success or error).\n\nWith the flag as shipped (Code node \"AI flag\": ai = false), only the keyword rules answer. To try the AI: add a chat-model credential on \"Chat model\", enable it and \"Extract barrier\", set ai = true. An AI answer is taken only if it is on the closed list with confidence 0.6 or more; otherwise the rules answer.\n\nBefore it goes live: run node scripts/words-eval.mjs (rules) and node scripts/words-eval.mjs --url <webhook> (the workflow), read both, and let Martin decide. Then the app needs WORDS_BOX=on and WORDS_URL on the server.\n",
+        "width": 520,
+        "height": 300
+      },
+      "id": "read-first",
+      "name": "Read first",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -380
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "bev-words",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "bev-words-w6"
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n node \"Check input\" (W6). The only thing W6 accepts: one short piece of text.\n// The text is used for this one run and is never written anywhere. It is not in the reply either.\nconst body = $input.first().json.body ?? $input.first().json;\nconst words = typeof body.words === 'string' ? body.words.replace(/\\s+/g, ' ').trim() : '';\nif (words.length < 3) throw new Error('Too short');\nif (words.length > 280) throw new Error('Too long');\nreturn [{ json: { words } }];\n"
+      },
+      "id": "check-input",
+      "name": "Check input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n node \"Rules\" (W6). The default, and the fallback whenever the AI step is off or its answer is not valid.\n// Counts keyword matches per barrier. A tie or no match is never guessed: it says 'unsure' or 'none' with a low confidence.\n// English and German keywords, because that is what people will type. Edit the lists here and run the evaluation again.\nconst WORDS = {\n  charging: /charg|wallbox|\\bplug|socket|garage|parking|park\\b|parked|landlord|tenant|\\brent(ed|er)?\\b|\\bapartment|flat\\b|no bay|laden|ladestation|vermieter|mieter|tiefgarage|steckdose/gi,\n  cost: /expensive|price|cost|afford|\\bcheap|money|\\bpay\\b|\\bloan|\\blease|budget|depreciat|resale|\\bworth|teuer|preis|kosten|geld|franken|chf/gi,\n  trips: /\\brange|long (trip|drive|distance)|holiday|vacation|road ?trip|motorway|highway|autobahn|\\btow\\b|\\btrailer|ski\\b|mountain|italy|reichweite|ferien|urlaub|anh[aä]nger|strecke/gi,\n  trust: /batter|\\bfire|lifespan|degrad|winter|\\bcold\\b|reliab|technolog|\\btrust|durab|repair|second-hand|used (ev|electric)|akku|zuverl|vertrau|kälte|kalt/gi,\n};\nconst DOUBT = /not sure|don't know|dont know|no idea|maybe|unsure|dunno|weiss nicht|weiß nicht|keine ahnung|unklar/i;\nconst { words } = $input.first().json;\nconst score = Object.fromEntries(Object.entries(WORDS).map(([k, re]) => [k, (words.match(re) || []).length]));\nconst ranked = Object.entries(score).sort((a, b) => b[1] - a[1]);\nconst [top, second] = ranked;\nlet barrier;\nlet confidence;\nif (top[1] === 0) {\n  barrier = DOUBT.test(words) ? 'unsure' : 'none';\n  confidence = 0.3;\n} else if (top[1] === second[1]) {\n  barrier = 'unsure';\n  confidence = 0.35;\n} else {\n  barrier = top[0];\n  confidence = Math.min(0.9, 0.5 + 0.15 * (top[1] - second[1]));\n}\nreturn [{ json: { words, rules: { barrier, confidence: Math.round(confidence * 100) / 100 } } }];\n"
+      },
+      "id": "rules",
+      "name": "Rules",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n node \"AI flag\" (W6). The switch for the AI step. It is false, so the workflow answers from the rules alone.\n// To try the AI step: add a chat-model credential to \"Chat model\", enable that node and \"Extract barrier\", set ai to true here.\n// Do that only after Martin has said yes, and after node scripts/words-eval.mjs has been read.\nconst ai = false;\nreturn $input.all().map((i) => ({ json: { ...i.json, ai } }));\n"
+      },
+      "id": "ai-flag",
+      "name": "AI flag",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "ai-flag",
+              "leftValue": "={{ $json.ai }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ai-on-",
+      "name": "AI on?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.words }}",
+        "attributes": {
+          "attributes": [
+            {
+              "name": "barrier",
+              "type": "string",
+              "description": "One of: charging, cost, trips, trust, unsure, none",
+              "required": true
+            },
+            {
+              "name": "confidence",
+              "type": "number",
+              "description": "From 0 to 1",
+              "required": true
+            }
+          ]
+        },
+        "options": {
+          "systemPromptTemplate": "Pick the one barrier that best matches what the person wrote about switching to an electric car. charging: nowhere to charge at home (rented flat, shared garage, no bay, landlord). cost: the price, financing, or resale value. trips: range on long trips, holidays, towing. trust: battery life, winter, reliability, new technology, used cars. unsure: the person says they do not know, or several barriers fit equally. none: the text is not about this. Give a confidence from 0 to 1. Return only the fields asked for. Do not give advice."
+        }
+      },
+      "id": "extract-barrier",
+      "name": "Extract barrier",
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
+      "position": [
+        1200,
+        -120
+      ],
+      "disabled": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5"
+        },
+        "options": {
+          "temperature": 0
+        }
+      },
+      "id": "chat-model",
+      "name": "Chat model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        1200,
+        120
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n node \"Decide\" (W6). Takes the AI answer only if it is exactly a name on the closed list with a confidence from 0 to 1,\n// and at least MIN_CONFIDENCE. Anything else, or a failed AI call, falls back to the rules. The reply carries no text.\nconst MIN_CONFIDENCE = 0.6;\nconst BARRIERS = ['charging', 'cost', 'trips', 'trust', 'unsure', 'none'];\nconst rules = $('Rules').first().json.rules;\nlet ai = null;\ntry {\n  const out = $('Extract barrier').first().json.output;\n  if (out && BARRIERS.includes(out.barrier) && typeof out.confidence === 'number' && out.confidence >= 0 && out.confidence <= 1) ai = out;\n} catch (e) {\n  ai = null; // the AI step did not run (flag off) or failed\n}\nconst useAi = ai !== null && ai.confidence >= MIN_CONFIDENCE;\nconst pick = useAi ? ai : rules;\nreturn [{ json: { ok: true, barrier: pick.barrier, confidence: Math.round(pick.confidence * 100) / 100, via: useAi ? 'ai' : 'rules' } }];\n"
+      },
+      "id": "decide",
+      "name": "Decide",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        0
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "reply-200",
+      "name": "Reply 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1680,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, error: \"rejected\" }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "reply-400",
+      "name": "Reply 400",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        480,
+        240
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Check input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check input": {
+      "main": [
+        [
+          {
+            "node": "Rules",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply 400",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rules": {
+      "main": [
+        [
+          {
+            "node": "AI flag",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply 400",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI flag": {
+      "main": [
+        [
+          {
+            "node": "AI on?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply 400",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI on?": {
+      "main": [
+        [
+          {
+            "node": "Extract barrier",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Decide",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract barrier": {
+      "main": [
+        [
+          {
+            "node": "Decide",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decide": {
+      "main": [
+        [
+          {
+            "node": "Reply 200",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply 400",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Extract barrier",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

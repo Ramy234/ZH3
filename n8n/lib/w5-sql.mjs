@@ -5,5 +5,7 @@ export const DIGEST_SQL = [
   `select 'barrier_ending', barrier, ending, count(*)::int ${base} and barrier is not null group by barrier, ending`,
   `select 'unclear', unclear, null, count(*)::int ${base} and unclear is not null group by unclear`,
   `select 'frame', keep_years::text, ending, count(*)::int ${base} and keep_years is not null group by keep_years, ending`,
+  `select 'cohort', cohort, null, count(*)::int ${base} and cohort is not null group by cohort`,
+  `select 'action', a, null, count(*)::int from bev_sessions_flat, unnest(actions) as a where stage = 'final' and not from_sample group by a`,
   `select 'fact_opened', f, null, count(*)::int from bev_sessions_flat, unnest(facts_opened) as f where stage = 'final' and not from_sample group by f`,
 ].join("\nunion all\n");

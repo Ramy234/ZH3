@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { FACTS, type Fact, type FactKey } from "@/lib/navigator/facts";
 import { DATASET, MODEL } from "@/lib/navigator/model";
+import { cleanActions, cleanCohort, cleanVia } from "@/lib/navigator/telemetry";
 import { SEED_VERSION, seedRows, type DatasetRow } from "@/lib/navigator/dataset";
 
 export type OfficialHome = { homeChf: number; n: number; year: string; place: string };
@@ -303,6 +304,9 @@ export type SessionBag = {
   rentDays?: number | null;
   fromSample?: boolean;
   datasetVersion?: string;
+  cohort?: string | null;
+  actions?: string[];
+  barrierVia?: string | null;
 };
 
 const ONE_OF = {
@@ -401,6 +405,9 @@ export const saveSession = createServerFn({ method: "POST" })
       ],
       claimsOpened: openedFacts(data.openedFacts),
       fromSample: data.fromSample === true,
+      cohort: cleanCohort(data.cohort),
+      actions: cleanActions(data.actions),
+      barrierVia: cleanVia(data.barrierVia),
       answers: {
         barrier: one(data.barrier, ONE_OF.barrier),
         carClass: one(data.carClass, ONE_OF.carClass),

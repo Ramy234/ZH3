@@ -31,4 +31,6 @@ The workspace is https://hsg-consultancy-project.app.n8n.cloud and the project i
 
 Builders: `n8n/build-w1.mjs`, `build-w3.mjs`, `build-w4.mjs`, `build-w5.mjs`, sharing `n8n/lib/kit.mjs`. The closed value lists live in `n8n/lib/enums.mjs`; a test fails if W1's whitelist or the app's types drift from them. `scripts/n8n-workflows.test.mjs` runs every Code node and every SQL statement (PGlite).
 
+| `w6-words-classifier.workflow.json` | Optional "say it in your own words" classifier. Rules answer; the AI step is off, with no credential. Keeps no execution data. | nothing | Needs Martin's decision before the AI step or the app box goes live. `node scripts/words-eval.mjs`. |
+
 Database: migrations `0012` (reference, source checks, flat view over sessions, insert-only triggers, RLS) and `0013` (test copies). Not applied to Supabase ZH3 yet.
