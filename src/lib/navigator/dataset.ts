@@ -67,21 +67,21 @@ const SOURCED: Record<string, Evidence> = {
     publisher: "TCS (Touring Club Schweiz), Benzinpreise Schweiz",
     published_on: "2026-09-19",
     source_url: "https://www.tcs.ch/de/camping-reisen/reiseinformationen/wissenswertes/fahrkosten-gebuehren/benzinpreise-schweiz.php",
-    note: "Euro-Super 95, TCS table of 19 Sep 2026. A spot price near this year's high (about 1.77 in late February). W3 replaces it with the BFS monthly average once that file is wired.",
+    note: "Euro-Super 95, TCS table of 19 Sep 2026. A spot price and the highest of the table's 23 entries this year: it ran from 1.61 (3 Feb) to 2.14. The time-weighted average of the 2026 entries is 1.83. TCS Kilometerkosten 2026 (6 Jan 2026) used 1.71 as a yearly average. A spot at the top leans toward switching; a monthly average is meant to replace it once chosen.",
   },
   "pump.diesel": {
     status: "sourced",
     publisher: "TCS (Touring Club Schweiz), Benzinpreise Schweiz",
     published_on: "2026-09-19",
     source_url: "https://www.tcs.ch/de/camping-reisen/reiseinformationen/wissenswertes/fahrkosten-gebuehren/benzinpreise-schweiz.php",
-    note: "Diesel, TCS table of 19 Sep 2026. A spot price near this year's high. W3 replaces it with the BFS monthly average once that file is wired.",
+    note: "Diesel, TCS table of 19 Sep 2026. A spot price and the highest of the table's 23 entries this year: it ran from 1.73 (3 Feb) to 2.46. The time-weighted average of the 2026 entries is 2.03. A spot at the top leans toward switching; a monthly average is meant to replace it once chosen.",
   },
   "rate.home": {
     status: "sourced",
     publisher: "ElCom via the Federal Council, press release on 2027 electricity tariffs",
     published_on: "2026-09-08",
     source_url: "https://www.admin.ch/de/newnsb/1miE201yRzoA",
-    note: "National median 2027, profile H4 (4,500 kWh a year): 26.5 Rp./kWh. 2026 was 27.7. Replaced by the ElCom canton or commune figure when one is picked.",
+    note: "National median 2027, profile H4 (4,500 kWh a year): 26.5 Rp./kWh. 2026 was 27.7. TCS Kilometerkosten 2026 (6 Jan 2026) used 28 rappen. Replaced by the ElCom canton or commune figure when one is picked.",
   },
 };
 
@@ -93,9 +93,11 @@ const EVIDENCE_NOTE: Record<string, string> = {
   "rate.sharedInstall": "Unverified. Reported cases run up to 15,000 CHF for an 18-bay building (Beobachter, undated).",
 };
 const EVIDENCE_FIELD: Record<string, string> = {
-  bevNew: "Class placeholder. Swiss average listing price of a new electric car: 51,424 CHF in Q1 2026, down 4.2 % (AutoScout24, 9 Apr 2026). Not comparable by class.",
-  bevUsed: "Class placeholder. Swiss average listing price of a used electric car: 40,599 CHF in Q1 2026, down 3.2 % (AutoScout24, 9 Apr 2026). Skewed by expensive models.",
-  resale: "Class placeholder. No Swiss resale figure by class was found. Needs a Eurotax or AutoScout24 extract.",
+  bevNew: "Class placeholder. Swiss average listing price of a new electric car: 51,424 CHF in Q1 2026, down 4.2 % (AutoScout24, 9 Apr 2026). The 2025 full-year average was 56,229 CHF, down 8.1 % (AutoScout24, 13 Jan 2026). Not comparable by class.",
+  bevUsed: "Class placeholder. Swiss average listing price of a used electric car: 40,599 CHF in Q1 2026, down 3.2 % (AutoScout24, 9 Apr 2026). The 2025 full-year average was 43,549 CHF, down 8.3 % (AutoScout24, 13 Jan 2026). Skewed by expensive models.",
+  resale: "Class placeholder. No public Swiss resale figure by class was found. Used electric listings in 2025 were about 3 % below 2020 levels (AutoScout24, 13 Jan 2026), which says nothing by class. Needs a Eurotax or AutoScout24 extract.",
+  iceL: "Class placeholder, not a quote. For scale: TCS Kilometerkosten 2026 (6 Jan 2026) uses 5 l/100 km for one model car. The federal average of all new cars in 2025 is 5.1 l petrol-equivalent, but it includes electrified cars, so it is not a petrol class figure (BFE, 23 Jun 2026).",
+  kwh: "Class placeholder, not a quote. For scale: TCS Kilometerkosten 2026 (6 Jan 2026) uses 18 kWh/100 km for one model car. The TCS winter test of 26 Jan 2026 (about 0 \u00b0C) measured 22.2 (Tesla Model Y) to 31.6 (Volvo EX90). The EnergieSchweiz label shows 13 to 30.6 across models (Oct 2023).",
   iceIns: "Class placeholder, not a quote. Comparis (19 Aug 2025): fully comprehensive cover is cheaper for an electric car in 70 % of cases. Many insurers expected higher premiums in 2026.",
   bevIns: "Class placeholder, not a quote. Comparis (19 Aug 2025): fully comprehensive cover is cheaper for an electric car in 70 % of cases. Zurich states a discount of up to 20 %. That ceiling is not applied.",
 };

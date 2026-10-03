@@ -123,4 +123,4 @@ Every new table gets row-level security, every new action needs a neutral publis
 
 **Earlier items now included in the same push:** the result-page reshape (next move, four panels), What if sliders, rebuilt climate view, urban/rural card and optional postcode, idea-sheet rewrites, front-page cards.
 
-**Still open:** the petrol default (see DECISIONS.md); a static postcode table (needs permission to download a dataset); weekly n8n jobs are written but inactive; the Google Sheet template is stale; row-level low and high figures; German and French; Christian's confirmation of the 2:1 wording.
+**Still open:** the petrol default and class-level figures (see DECISIONS.md, evening entry of 3 Oct); a static postcode table (needs permission to download a dataset); weekly n8n jobs are written but inactive; the Google Sheet template is stale; row-level low and high figures; German and French; Christian's confirmation of the 2:1 wording.

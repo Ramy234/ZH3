@@ -1,4 +1,4 @@
-// Writes migrations/0015_bev_dataset_v2026_10_03.sql from the constants in model.ts (0010 is the frozen first version).
+// Writes migrations/0021_bev_dataset_v2026_10_03b.sql from the constants in model.ts (0010 and 0015 are frozen earlier versions).
 // Run: node --experimental-strip-types scripts/gen-dataset-seed.mjs   (add --check to verify only)
 import { readFileSync, writeFileSync } from "node:fs";
 import { seedRows, SEED_VERSION } from "../src/lib/navigator/dataset.ts";
@@ -15,7 +15,7 @@ on conflict (dataset_version, key) do nothing;
 `;
 }
 
-const file = new URL("../migrations/0015_bev_dataset_v2026_10_03.sql", import.meta.url);
+const file = new URL("../migrations/0021_bev_dataset_v2026_10_03b.sql", import.meta.url);
 if (process.argv[1] && import.meta.url === new URL(process.argv[1], "file:").href) {
   if (process.argv.includes("--check")) {
     process.exit(readFileSync(file, "utf8") === seedSql() ? 0 : 1);

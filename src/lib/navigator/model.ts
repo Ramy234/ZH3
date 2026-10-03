@@ -206,7 +206,7 @@ export function pumpFor(fuel: Exclude<Fuel, "electric">): number {
   return fuel === "hybrid" ? PUMP.petrol : PUMP[fuel];
 }
 
-export const DATASET = "v-2026-10-03-0001";
+export const DATASET = "v-2026-10-03-0002";
 /** Bump when the arithmetic changes, so stored rows from before and after can be told apart. */
 export const MODEL = "2026-10-03-r4";
 
