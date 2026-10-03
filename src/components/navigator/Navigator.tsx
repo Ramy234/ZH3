@@ -1793,8 +1793,13 @@ function ResultView({
               {SOURCES["tco-2023"].title}, {SOURCES["tco-2023"].published}
             </a>
           </div>
-          <button type="button" onClick={() => openPanel("sources", "climate")} className="min-h-11 text-left text-sm font-medium text-spruce">
-            Climate, beside the money
+          <button
+            type="button"
+            onClick={() => openPanel("sources", "climate")}
+            className="mt-3 flex min-h-14 w-full flex-col items-start justify-center rounded-2xl border border-line bg-sheet px-4 py-2 text-left"
+          >
+            <span className="text-sm font-medium text-spruce">Climate, beside the money</span>
+            <span className="text-xs leading-snug text-muted">By distance driven, from the federal study. Never in the francs.</span>
           </button>
           <p className="mt-3 text-sm leading-relaxed">
             <span className="font-medium">{paybackTitle(result)}.</span>{" "}
@@ -2283,7 +2288,7 @@ function ResultView({
         </div>
 
         <p className="text-xs leading-relaxed text-muted">
-          Indicative only. Not financial, insurance, tax, or purchase advice. Electricity, vehicle prices, tax, and rental days are labelled placeholders, not live Swiss tariffs or a dealer offer. The climate line is a published comparison of two new cars. It is not calculated for this case, and it does not change the payback. Winter range and data-security comparisons are not calculated here.
+          Indicative only. Not financial, insurance, tax, or purchase advice. Electricity, vehicle prices, tax, and rental days are labelled placeholders, not live Swiss tariffs or a dealer offer. The climate view is the federal study's finding by distance driven. It is not calculated for this case, and it does not change the payback. Winter range and data-security comparisons are not calculated here.
         </p>
 
         <button type="button" onClick={onReset} className="flex h-11 items-center justify-center gap-2 text-sm font-medium text-muted">
