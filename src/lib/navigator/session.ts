@@ -1,3 +1,4 @@
+import { BANDS, band, cleanPostcode, money } from "./bands.ts";
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { FACTS, type Fact, type FactKey } from "@/lib/navigator/facts";
@@ -302,6 +303,10 @@ export type SessionBag = {
   litres?: number | null;
   gearQuote?: number | null;
   rentDays?: number | null;
+  /** Optional. Four digits, typed by the person. Stored apart from the session (bev_locations), never in the payload. */
+  postcode?: string | null;
+  /** Optional. Asked as three taps when no postcode is given. */
+  settlement?: string | null;
   fromSample?: boolean;
   datasetVersion?: string;
   cohort?: string | null;
@@ -323,6 +328,7 @@ const ONE_OF = {
   mobileInterest: ["yes", "no"],
   worry: ["tenant", "winter", "refuse"],
   unclear: ["km", "payback", "price", "wording"],
+  settlement: ["city", "town", "rural"],
   canton: ["ZH", "BE", "LU", "UR", "SZ", "OW", "NW", "GL", "ZG", "FR", "SO", "BS", "BL", "SH", "AR", "AI", "SG", "GR", "AG", "TG", "TI", "VD", "VS", "NE", "GE", "JU"],
   persona: ["urbanRenter", "familyHome", "distance", "cost", "skeptic", "occasional"],
   toggle: ["home", "work", "rightSize", "used", "publicPlan", "tariff", "pv", "insDiscount"],
@@ -330,12 +336,6 @@ const ONE_OF = {
 
 function one(value: unknown, allowed: readonly string[]): string | null {
   return typeof value === "string" && allowed.includes(value) ? value : null;
-}
-
-function money(value: unknown): number {
-  const n = typeof value === "number" ? value : Number.NaN;
-  if (!Number.isFinite(n)) return 0;
-  return Math.max(-500000, Math.min(500000, Math.round(n)));
 }
 
 function openedFacts(value: unknown): string[] {
@@ -354,6 +354,7 @@ export const saveSession = createServerFn({ method: "POST" })
     const clientSession = data.clientSession;
     if (!/^[0-9a-f-]{16,80}$/i.test(clientSession)) throw new Error("Bad session");
     const stage: Stage = data.stage === "mid" ? "mid" : "final";
+    const postcode = cleanPostcode(data.postcode);
     const toggles: Record<string, boolean> = {};
     for (const key of ONE_OF.toggle) toggles[key] = Boolean(data.toggles?.[key]);
     const payload = {
@@ -377,14 +378,19 @@ export const saveSession = createServerFn({ method: "POST" })
           n8n: "Code",
           engine: "browser",
           output: {
-            annualKeep: money(data.annualKeep),
-            annualSwap: money(data.annualSwap),
-            cash: money(data.cash),
-            saving: money(data.saving),
+            annualKeep: band(data.annualKeep, BANDS.annual),
+            annualSwap: band(data.annualSwap, BANDS.annual),
+            cash: band(data.cash, BANDS.cash),
+            saving: band(data.saving, BANDS.saving),
             paybackYears:
               data.paybackYears == null || !Number.isFinite(Number(data.paybackYears))
                 ? null
-                : Math.round(Number(data.paybackYears) * 10) / 10,
+                : Math.round(Number(data.paybackYears) / BANDS.payback) * BANDS.payback,
+            // Worked out from the exact figure before it is rounded, so a rounded 8.0 never flips the ending.
+            ending:
+              data.paybackYears != null && Number.isFinite(Number(data.paybackYears)) && Number(data.paybackYears) <= 8
+                ? "covered_within_8"
+                : "keep_or_later",
             withinHorizon: Boolean(data.withinHorizon),
             dataset: typeof data.datasetVersion === "string" && /^[a-z0-9-]{1,40}$/.test(data.datasetVersion) ? data.datasetVersion : DATASET,
             model: MODEL,
@@ -408,6 +414,12 @@ export const saveSession = createServerFn({ method: "POST" })
       cohort: cleanCohort(data.cohort),
       actions: cleanActions(data.actions),
       barrierVia: cleanVia(data.barrierVia),
+      // Coarse place only. The postcode itself goes to bev_locations below, not into this payload.
+      location: {
+        canton: one(data.canton, ONE_OF.canton),
+        settlement: one(data.settlement, ONE_OF.settlement),
+        plz2: postcode ? postcode.slice(0, 2) : null,
+      },
       answers: {
         barrier: one(data.barrier, ONE_OF.barrier),
         carClass: one(data.carClass, ONE_OF.carClass),
@@ -422,22 +434,39 @@ export const saveSession = createServerFn({ method: "POST" })
         mobileInterest: one(data.mobileInterest, ONE_OF.mobileInterest),
         worry: one(data.worry, ONE_OF.worry),
         unclear: one(data.unclear, ONE_OF.unclear),
-        listPrice: data.listPrice == null ? null : money(data.listPrice),
-        resalePrice: data.resalePrice == null ? null : money(data.resalePrice),
+        listPrice: data.listPrice == null ? null : band(data.listPrice, BANDS.price),
+        resalePrice: data.resalePrice == null ? null : band(data.resalePrice, BANDS.price),
         keepYears: data.keepYears === 4 || data.keepYears === 12 || data.keepYears === 16 || data.keepYears === 24 || data.keepYears === 32 ? data.keepYears : null,
         mix:
           [data.mixHome, data.mixWork, data.mixPublic].every((n) => typeof n === "number" && n >= 0 && n <= 1)
             ? { home: data.mixHome, work: data.mixWork, public: data.mixPublic }
             : null,
-        litres: typeof data.litres === "number" && data.litres >= 3 && data.litres <= 14 ? Math.round(data.litres * 10) / 10 : null,
-        gearQuote: data.gearQuote == null ? null : money(data.gearQuote),
+        litres: typeof data.litres === "number" && data.litres >= 3 && data.litres <= 14 ? Math.round(data.litres / BANDS.litres) * BANDS.litres : null,
+        gearQuote: data.gearQuote == null ? null : band(data.gearQuote, BANDS.quote),
         rentDays: data.rentDays === 0 || data.rentDays === 2 || data.rentDays === 4 || data.rentDays === 8 ? data.rentDays : null,
       },
     };
     const sql = await getSql();
     const id = crypto.randomUUID();
     await sql`insert into bev_sessions (id, client_session, stage, payload) values (${id}, ${clientSession}, ${stage}, ${JSON.stringify(payload)})`;
+    if (postcode) {
+      // The page saves again after every change. Write the postcode once per value, not once per save.
+      try {
+        await sql`insert into bev_locations (client_session, postcode, canton, settlement)
+          select ${clientSession}::text, ${postcode}::text, ${one(data.canton, ONE_OF.canton)}::text, ${one(data.settlement, ONE_OF.settlement)}::text
+          where not exists (select 1 from bev_locations where client_session = ${clientSession}::text and postcode = ${postcode}::text)`;
+      } catch {
+        // table not migrated yet: the session itself is already saved
+      }
+    }
+    // Retention, kept here so the promise on the page needs no scheduler: postcodes older than twelve months are deleted.
+    try {
+      await sql`delete from bev_locations where created_at < now() - interval '12 months'`;
+    } catch {
+      // table not migrated yet
+    }
     return { id };
   });
 
+export { BANDS, band, cleanPostcode };
 export type { FactKey };

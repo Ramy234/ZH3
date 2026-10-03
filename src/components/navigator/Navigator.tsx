@@ -164,6 +164,9 @@ export function Navigator() {
   const [cantonRate, setCantonRate] = useState<OfficialHome | null>(null);
   const [cantonState, setCantonState] = useState<"idle" | "loading" | "failed">("idle");
   const [homeGrain, setHomeGrain] = useState<"municipality" | null>(null);
+  // Optional place. The postcode is sent once with the result and stored apart from the answers; the settlement is a tap.
+  const [postcode, setPostcode] = useState<string | null>(null);
+  const [settlement, setSettlement] = useState<"city" | "town" | "rural" | null>(null);
   const [sent, setSent] = useState<"idle" | "sending" | "saved" | "failed">("idle");
   const [sentStage, setSentStage] = useState<"mid" | "final" | null>(null);
   const [gap, setGap] = useState<Gap | null>(null);
@@ -310,6 +313,7 @@ export function Navigator() {
 
   async function pickCanton(code: string | null) {
     setCanton(code);
+    setPostcode(null);
     setSent("idle");
     setSentStage(null);
     if (!code) {
@@ -341,6 +345,7 @@ export function Navigator() {
         return;
       }
       setCanton(hit.canton);
+      setPostcode(plz);
       if (hit.homeChf > 0.1) {
         setHomeGrain("municipality");
         setCantonRate({ homeChf: hit.homeChf, n: hit.n, year: hit.year, place: hit.place });
@@ -434,6 +439,8 @@ export function Navigator() {
       litres: result.answers.litres ?? null,
       gearQuote: result.answers.gearQuote ?? null,
       rentDays: result.answers.rentDays ?? null,
+      postcode,
+      settlement,
       fromSample,
       datasetVersion,
       cohort,
@@ -455,6 +462,8 @@ export function Navigator() {
           result.annualSwap,
           result.paybackYears,
           result.canton ?? "",
+          postcode ?? "",
+          settlement ?? "",
           result.homeOfficial ? "1" : "0",
           opened.join(","),
           JSON.stringify(result.toggles),
@@ -670,6 +679,13 @@ export function Navigator() {
         onAction={record}
         onPostcode={usePostcode}
         grain={homeGrain}
+        settlement={settlement}
+        onSettlement={(v) => {
+          setSettlement(v);
+          setSent("idle");
+          setSentStage(null);
+        }}
+        postcodeSet={postcode != null}
         datasetRows={datasetRows}
         datasetVersion={datasetVersion}
       />
@@ -1448,6 +1464,9 @@ function ResultView({
   onAction,
   onPostcode,
   grain,
+  settlement,
+  onSettlement,
+  postcodeSet,
   datasetRows,
   datasetVersion,
 }: {
@@ -1480,6 +1499,9 @@ function ResultView({
   onAdjust: (partial: Partial<Answers>) => void;
   onPostcode: (plz: string) => Promise<void>;
   grain: "municipality" | null;
+  settlement: "city" | "town" | "rural" | null;
+  onSettlement: (v: "city" | "town" | "rural" | null) => void;
+  postcodeSet: boolean;
 }) {
   const [climateOpen, setClimateOpen] = useState(false);
   const sens = useMemo(() => sensitivity(result), [result]);
@@ -1733,6 +1755,18 @@ function ResultView({
           }}
         />
 
+        <LocalPerson
+          canton={canton}
+          cantonState={cantonState}
+          onCanton={onCanton}
+          onPostcode={onPostcode}
+          place={result.official?.place ?? null}
+          grain={grain}
+          settlement={settlement}
+          onSettlement={onSettlement}
+          postcodeSet={postcodeSet}
+        />
+
         <section>
           <h2 className="font-medium">Next steps</h2>
           <ol className="mt-3 space-y-3">
@@ -1978,27 +2012,19 @@ function ResultView({
                 Payback is the extra money to switch, divided by how much less the car costs to run each year. The francs in that sum are placeholders until a dated source replaces them. The situation above does not enter the sum.
               </p>
               <p className="mt-2 text-sm leading-relaxed text-muted">
-                The same five steps can later run in n8n. Nothing in n8n runs yet. A TypeSafe node would replace only the situation, and only with a closed choice. It does not write a paragraph and it does not price the car. The price stays in this browser. Reaching this page stores the taps and the numbers. No name, no postcode, no sentence.
+                The same five steps can later run in n8n. Nothing in n8n runs yet. A TypeSafe node would replace only the situation, and only with a closed choice. It does not write a paragraph and it does not price the car. The price stays in this browser. Reaching this page stores the taps and the numbers, rounded to bands. A postcode is stored only if you type one, and apart from the rest. No name, no sentence.
               </p>
               <ol className="mt-3 space-y-2 text-sm">
                 <li>1 · Form — your taps</li>
                 <li>2 · TypeSafe choice — situation, not a recommendation</li>
                 <li>3 · Code — payback, in the browser</li>
                 <li>4 · Switch — finite options, including 2:1 and a mobile charger</li>
-                <li>5 · Postgres — one session bag, no name, no postcode</li>
+                <li>5 · Postgres — one session bag, no name; a postcode only if you add it</li>
               </ol>
             </div>
           ) : null}
         </section>
 
-        <LocalPerson
-          canton={canton}
-          cantonState={cantonState}
-          onCanton={onCanton}
-          onPostcode={onPostcode}
-          place={result.official?.place ?? null}
-          grain={grain}
-        />
         </Fold>
 
         <section id="plan" className="rounded-2xl border border-line bg-card p-4">
@@ -2008,7 +2034,7 @@ function ResultView({
               ? "Updating the stored plan…"
               : sent === "failed"
                 ? "Not stored. The plan below is still the current case."
-                : "Stored. It follows every change on this page. Not a sentence. No name, no postcode."}
+                : "Stored, as bands. It follows every change on this page. No name, no sentence."}
           </p>
           <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap [overflow-wrap:anywhere] rounded-2xl bg-sheet p-3 text-sm leading-relaxed">{planText(result)}</pre>
           <div className="mt-4 flex flex-col gap-2">
@@ -2613,6 +2639,9 @@ function LocalPerson({
   onPostcode,
   place,
   grain,
+  settlement,
+  onSettlement,
+  postcodeSet,
 }: {
   canton: string | null;
   cantonState: "idle" | "loading" | "failed";
@@ -2620,21 +2649,45 @@ function LocalPerson({
   onPostcode: (plz: string) => Promise<void>;
   place: string | null;
   grain: "municipality" | null;
+  settlement: "city" | "town" | "rural" | null;
+  onSettlement: (v: "city" | "town" | "rural" | null) => void;
+  postcodeSet: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [plz, setPlz] = useState("");
+  const SETTLEMENTS = [
+    ["city", "In a city"],
+    ["town", "Town or agglomeration"],
+    ["rural", "Countryside"],
+  ] as const;
   return (
-    <section id="place">
-      <h2 className="font-medium">A place, if you want one</h2>
+    <section id="place" className="rounded-2xl border border-line bg-card p-4 lg:p-5">
+      <h2 className="font-medium">Make it local</h2>
       <p className="mt-1 text-sm leading-relaxed text-muted">
         {grain === "municipality" && place
-          ? `The home price is the ElCom figure for ${place}. The tax is the TCS figure for the canton, not your registration. The postcode was used for that lookup and is not stored.`
+          ? `The home price is now the ElCom figure for ${place}. The tax is the TCS figure for the canton, not your registration.`
           : place && place !== "Switzerland"
             ? `The home price is now the ElCom mean for ${place}. The tax is the TCS figure for the nearest published car in that canton, not your registration.`
-            : "The home price is a Swiss mean. A canton changes the tax and the mean. A postcode gets the commune price, then it is dropped."}
+            : "Electricity prices, taxes and charging rules differ by canton and by commune. Tell us roughly where you live and the home price changes to your area. It is optional."}
       </p>
+
+      <p className="mt-4 text-sm font-medium">Where do you live?</p>
+      <div className="mt-2 grid gap-2 sm:grid-cols-3">
+        {SETTLEMENTS.map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            aria-pressed={settlement === id}
+            onClick={() => onSettlement(settlement === id ? null : id)}
+            className={`min-h-12 rounded-2xl border px-4 text-left text-sm font-medium ${settlement === id ? "border-spruce bg-spruce text-spruce-ink" : "border-line bg-card"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       <form
-        className="mt-3 flex gap-2"
+        className="mt-4 flex gap-2"
         onSubmit={(event) => {
           event.preventDefault();
           const digits = plz.trim();
@@ -2652,10 +2705,19 @@ function LocalPerson({
           className="h-12 w-28 rounded-2xl border border-line bg-card px-3 text-sm"
         />
         <button type="submit" className="h-12 rounded-full border border-line bg-card px-4 text-sm font-medium">
-          Use it once
+          Use my postcode
         </button>
       </form>
-      <p className="mt-2 text-sm leading-relaxed text-muted">A name is not asked. It would make the row a person, and it does not change the francs.</p>
+      <p className="mt-2 text-sm leading-relaxed text-muted">
+        {postcodeSet ? "Postcode added. Stored apart from your answers, with no name." : "Optional. Skip it and nothing changes."}
+      </p>
+      <details className="mt-1 text-sm text-muted">
+        <summary className="min-h-8 cursor-pointer py-1 font-medium text-spruce">What happens to it?</summary>
+        <p className="leading-relaxed">
+          A postcode is stored apart from your answers, so we can count where information is missing. We ask for no name and no address, and nobody can look you up from it. It is deleted automatically after twelve months. Anything shown to others covers at least ten people.
+        </p>
+      </details>
+
       <div className="mt-3 flex flex-col gap-2">
         <button
           type="button"
@@ -2696,8 +2758,8 @@ function LocalPerson({
       ) : null}
       <div className="mt-4 flex flex-col gap-2">
         <a href={OUT.energyAdvice} target="_blank" rel="noopener noreferrer" className="rounded-2xl border border-line bg-card px-4 py-3">
-          <span className="block text-sm font-medium">A commune needs their page, not this one</span>
-          <span className="mt-0.5 block text-sm leading-snug text-muted">EnergieSchweiz directory. You type the postcode there. It is not stored here.</span>
+          <span className="block text-sm font-medium">Your commune&apos;s own page</span>
+          <span className="mt-0.5 block text-sm leading-snug text-muted">EnergieSchweiz directory. Local grants and rules sit there, not in this sum.</span>
         </a>
         <a href={OUT.tenantGuide} target="_blank" rel="noopener noreferrer" className="rounded-2xl border border-line bg-card px-4 py-3">
           <span className="block text-sm font-medium">A page to take to the landlord</span>

@@ -67,5 +67,5 @@ export const STEPS: { title: string; body: string }[] = [
   { title: "Numbers are looked up", body: "Prices and consumption come from a dated list of figures. Each one has a status: sourced to a named publisher, official, or a rough class figure." },
   { title: "The sum runs in your browser", body: "A year of running each car, the extra money at the start, and the year the saving catches up. Plain arithmetic, the same every time. No AI writes the verdict, the steps or a source." },
   { title: "Moving one figure at a time", body: "The result page re-runs the same sum with each main assumption pushed to a kind and a hard value, to show how far the answer could move." },
-  { title: "One anonymous record", body: "When the result opens, one record of your taps and the numbers is saved. No name, no address, no postcode, no sentence." },
+  { title: "One anonymous record", body: "When the result opens, one record of your taps and the numbers is saved, with prices rounded to bands. No name, no address, no sentence. A postcode is stored only if you choose to add one, apart from the record, and deleted after twelve months." },
 ];

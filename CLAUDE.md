@@ -18,7 +18,7 @@ Read these first, in this order, before you change anything:
 - **Money stays deterministic, in the browser.** The francs, the payback, the title and the steps come from `src/lib/navigator/model.ts`. No language model writes the verdict, the steps or a source.
 - **AI may only classify** into a closed list, with a confidence, and there must be a rules fallback (see W6 in the handover).
 - **No sales.** No dealer or insurer offer, no car-model picker, no "chance you will switch", no gamified rewards for switching.
-- **Never collect** a name, an address, a postcode (look it up, then drop it), a coordinate or a free-text sentence.
+- **Never collect** a name, an address, a coordinate or a free-text sentence. **A postcode is allowed since Martin's yes of 3 Oct 2026, on these conditions:** optional (never a barrier to the result), asked only on the result page with a short notice, stored only in `bev_locations` (never in the session payload or a counting view), deleted after 12 months, and shown outside the team only for groups of at least 10 (`PUBLIC_MIN_CELL`; internal views at least 5). Stored prices, quotes and litres are banded (`BANDS` in `session.ts`).
 - **Climate never enters the francs.** No personal kilogram of CO₂.
 - **These never enter the francs:** the 20 % insurance ceiling, grants, the draft federal levy from 2030, or a winter factor.
 - **Do not retune** the situation weights.

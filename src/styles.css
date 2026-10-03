@@ -1,8 +1,10 @@
+@import "@fontsource-variable/atkinson-hyperlegible-next";
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Fraunces", ui-serif, Georgia, serif;
+  /* One open-licence face (SIL OFL 1.1), served from this site. Made for low-vision readers; no request to a font host. */
+  --font-sans: "Atkinson Hyperlegible Next Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Atkinson Hyperlegible Next Variable", ui-sans-serif, system-ui, sans-serif;
   /* A cooler, whiter page than before: the colour now comes from the one dark panel and the lime accent. */
   --color-bg: #eceee9;
   --color-sheet: #f8f8f4;

@@ -42,3 +42,12 @@
 - **`/method` (public).** Five steps, every dataset row grouped, the "left out on purpose" list with the direction of each omission (`method.ts`). Read live from `bev_dataset`; falls back to the built-in seed.
 - **Wording.** Plain everyday English, same interactive voice. Dropped "where the car sleeps", "not a Tuesday", "what stings", "cheque". Per-month figure added to the first verdict line. Structure is German-ready (copy still lives in code, to be lifted into a catalogue when German is done).
 - The Google Sheet template in Drive is stale until Martin refreshes it from `n8n/sheet/bev-dataset-template.csv` (regenerated). W2 must not be switched on before that.
+
+
+## 3 October 2026 (evening): postcode stored, numbers tightened, place made visible
+
+- **Postcode may be stored (Martin's explicit yes).** Reason: with an approximate place we can point to tax, incentive and rule pages down to commune level, and see where information gaps sit. It overrides the old hard rule. Conditions: optional and never in the way of the result; asked on the result page, in a "Make it local" card, with a one-line notice and a "What happens to it?" fold; stored only in `bev_locations` (migration 0017, RLS on, no policy), never in the payload or any counting view; deleted after 12 months (done inside `saveSession`, so no scheduler is needed); anything outside the team covers at least 10 people (`PUBLIC_MIN_CELL`, internal `MIN_CELL` stays 5).
+- **Counting views get only coarse place.** `bev_sessions_flat` gains `canton`, `settlement`, `plz2` (first two digits) and `week_start`. New `bev_sessions_analytics` view drops the session id, the exact time and every price. `/sittings` and W5 still read the flat view (closed columns only); a public page must read the analytics view.
+- **Banding on save.** List and resale price to CHF 2,500, gear quote to CHF 500, litres to whole litres, yearly costs to CHF 100, saving to CHF 50, extra cash to CHF 500, payback to half a year. The ending is stored as its own field, worked out from the exact payback first, so rounding can never flip it.
+- **Urban/rural was never asked properly.** The place box sat in a closed fold. It is now a visible card with three taps (city, town or agglomeration, countryside) and the postcode box. All optional.
+- **Not yet done:** a static postcode table (the current lookup calls openplzapi.org, a third party; needs Martin's permission to download a dataset and a licence check) and a derived settlement type from the postcode.

@@ -5,6 +5,8 @@ import { ACTIONS } from "./telemetry.ts";
 
 /** A cell under this many people is not shown. The same number as the W5 digest. */
 export const MIN_CELL = 5;
+/** Anything shown outside the team (a public page, a share) needs at least this many people in a cell. */
+export const PUBLIC_MIN_CELL = 10;
 
 export type FlatRow = {
   cohort: string | null;

@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { keyMatches, sittingsReport, type FlatRow } from "./sittings.ts";
+import { keyMatches, sittingsReport, MIN_CELL, PUBLIC_MIN_CELL, type FlatRow } from "./sittings.ts";
+import { band, cleanPostcode, BANDS } from "./bands.ts";
 import { cleanActions, cleanCohort } from "./telemetry.ts";
 
 const row = (over: Partial<FlatRow> = {}): FlatRow => ({ cohort: "i1", stage: "final", from_sample: false, ending: "keep_or_later", barrier: "charging", unclear: null, actions: ["share"], ...over });
@@ -36,4 +37,24 @@ test("sittings: a short code list is closed, and the key check fails closed", ()
   assert.equal(keyMatches("abc", ""), false);
   assert.equal(keyMatches("abd", "abc"), false);
   assert.equal(keyMatches("abc", "abc"), true);
+});
+
+test("tightening: public cells are at least ten and never below the internal one", () => {
+  assert.ok(PUBLIC_MIN_CELL >= 10);
+  assert.ok(PUBLIC_MIN_CELL >= MIN_CELL);
+});
+
+test("tightening: prices are banded so an exact figure is not stored", () => {
+  assert.equal(band(38450, BANDS.price), 37500);
+  assert.equal(band(39000, BANDS.price), 40000);
+  assert.equal(band(1234, BANDS.quote), 1000);
+  assert.equal(band(Number.NaN, BANDS.price), 0);
+});
+
+test("tightening: only a four-digit postcode is kept", () => {
+  assert.equal(cleanPostcode("8001"), "8001");
+  assert.equal(cleanPostcode("0801"), null);
+  assert.equal(cleanPostcode("80010"), null);
+  assert.equal(cleanPostcode("Bahnhofstr. 1"), null);
+  assert.equal(cleanPostcode(8001), null);
 });
