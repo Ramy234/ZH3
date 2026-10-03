@@ -210,7 +210,7 @@ export function pumpFor(fuel: Exclude<Fuel, "electric">): number {
 
 export const DATASET = "v-2026-10-03-0004";
 /** Bump when the arithmetic changes, so stored rows from before and after can be told apart. */
-export const MODEL = "2026-10-03-r5";
+export const MODEL = "2026-10-03-r6";
 
 export const SOURCES = {
   "tco-2023": {
@@ -465,7 +465,8 @@ export function suggestToggles(a: Answers): Toggles {
     home: a.fuel === "electric" ? homePark : homePark || sharedish,
     work: a.workAccess === "yes" || a.workAccess === "ask",
     rightSize: a.carClass !== "small" && (a.barrier === "trips" || a.uses.includes("holiday") || a.uses.includes("long")),
-    used: a.fuel === "electric" ? false : a.barrier === "cost" || a.usedStance === "yes" || a.costSting === "price",
+    // An explicit "no" or "new only" is respected. Without it, a cost worry or a price sting points to a used car.
+    used: a.fuel === "electric" ? false : a.usedStance === "no" || a.usedStance === "new" ? false : a.barrier === "cost" || a.usedStance === "yes" || a.costSting === "price",
     publicPlan: false,
     tariff: false,
     pv: false,
@@ -762,6 +763,12 @@ export type Result = {
   paybackYears: number | null;
   withinHorizon: boolean;
   series: { year: number; keep: number; swap: number }[];
+  /**
+   * The most a certified used electric car of the class in the case can cost, for the extra price to be covered inside the
+   * picture's window. It is the same sum run backwards: your car's resale value, plus the yearly saving times the window,
+   * minus the charging gear and the battery check. A class figure, not a price list and not an offer. Null when you drive electric already.
+   */
+  usedCeiling: { chf: number; window: number; classUsed: number; gear: number; resale: number; saving: number; reachable: boolean } | null;
   /** Going without a car: a travel card plus rented days for the rare trips, and the car sold once. Never the headline. */
   without: { annual: number; card: number; days: number; rentalCost: number; creditBack: number; series: number[] };
   parts: { label: string; keep: number; swap: number; how: string; link?: { name: string; href: string } }[];
@@ -868,6 +875,19 @@ export function evaluate(
 
   // Going without a car. The travel card is the ceiling for all public transport (a half-fare card with single tickets can cost
   // less if you travel little). The rare days a car is needed are rented. The car you own is sold once, so the line starts below zero.
+  const gearForUsed = hardware + (toggles.used ? 0 : RATES.batteryCheck);
+  const ceilingRaw = currentResale + Math.max(saving, 0) * horizon - gearForUsed;
+  const usedCeiling: Result["usedCeiling"] = sameCar || alreadyElectric
+    ? null
+    : {
+        chf: Math.max(0, Math.round(ceilingRaw / 100) * 100),
+        window: horizon,
+        classUsed: SPECS[bevClass].bevUsed,
+        gear: gearForUsed,
+        resale: currentResale,
+        saving: Math.max(0, saving),
+        reachable: ceilingRaw >= SPECS[bevClass].bevUsed,
+      };
   const withoutDays = rentalDays(a);
   const withoutRental = withoutDays * RATES.rentalDay;
   const withoutAnnual = Math.round(RATES.travelCard + withoutRental);
@@ -1126,6 +1146,7 @@ export function evaluate(
     withinHorizon,
     series,
     without,
+    usedCeiling,
     parts,
     verdict,
     headline,

@@ -31,6 +31,16 @@ for (const width of [360, 390, 1280]) {
     await page.waitForTimeout(300);
   }
   for (const [i, re] of taps.entries()) {
+    if (i === 4) {
+      // The years gauge is a small chip beside the progress bar. Open it and check it fits.
+      const chip = page.getByRole("button", { name: /Years to cover the extra price/ }).first();
+      if (await chip.count() && width < 1000) {
+        await chip.click();
+        await page.waitForTimeout(300);
+        await check("years chip open (waiting)");
+        await chip.click();
+      }
+    }
     await page.getByRole("button", { name: re }).first().click();
     await page.waitForTimeout(450);
     await check(i === taps.length - 1 ? "result" : `after tap ${i + 1}`);
@@ -73,7 +83,24 @@ for (const width of [360, 390, 1280]) {
     await more.click();
     await page.waitForTimeout(300);
     await check("more levers open");
+    await page.getByRole("button", { name: "Holidays", exact: true }).first().click();
+    await page.waitForTimeout(300);
+    await check("a use chip tapped, its effect line shown");
   }
+  // Place, rights and in-person events.
+  await page.getByRole("button", { name: /Add canton, postcode, own or rent/ }).first().click();
+  await page.waitForTimeout(400);
+  await page.getByRole("button", { name: "I own my home" }).first().click();
+  await page.waitForTimeout(250);
+  await check("what applies to you (owner)");
+  await page.getByRole("button", { name: "I rent" }).first().click();
+  await page.waitForTimeout(250);
+  await check("what applies to you (tenant)");
+  const events = page.getByText("Meet people in person").first();
+  await events.scrollIntoViewIfNeeded();
+  await events.click();
+  await page.waitForTimeout(500);
+  await check("in-person list open and empty");
 }
 await browser.close();
 process.exit(failed ? 1 : 0);

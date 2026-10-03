@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { notesForUses } from "@/lib/navigator/uses-effect";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -36,6 +37,8 @@ import { DecisionFile } from "@/components/navigator/decision-file";
 import { NO_SETUP, chargeVerdict, setupDone, type ChargeSetup } from "@/lib/navigator/charging";
 import { olderThanUsual } from "@/lib/navigator/freshness";
 import { WATCH_SEED, type Watch } from "@/lib/navigator/watch";
+import { InPerson, MoreToExplore, RightsCard, UsedPriceCard } from "@/components/navigator/place-parts";
+import { rightsFor, type Tenure } from "@/lib/navigator/rights";
 import { CostChart } from "@/components/navigator/CostChart";
 import { FACTS, FACT_VIEW, type Fact, type FactKey } from "@/lib/navigator/facts";
 import { applyDataset, seedRows, type DatasetRow } from "@/lib/navigator/dataset";
@@ -47,7 +50,7 @@ import { ordinaryWeek } from "@/lib/navigator/week";
 import { cardBlob } from "@/lib/navigator/share-card";
 import { revisitIcs } from "@/lib/navigator/revisit";
 import { wouldHaveToBeTrue, type Counterfactual, type LeverKey } from "@/lib/navigator/counterfactual";
-import { CANTONS, listFacts, loadDataset, cantonHomeRate, lookupPostcode, officialHomeRate, saveSession, listWatch, type OfficialHome, type SessionBag } from "@/lib/navigator/session";
+import { CANTONS, listFacts, loadDataset, cantonHomeRate, lookupPostcode, officialHomeRate, saveSession, listWatch, listEvents, type OfficialHome, type SessionBag } from "@/lib/navigator/session";
 import {
   BARRIERS,
   CLASSES,
@@ -145,7 +148,8 @@ type Saved = {
   step: Step;
   answers: Answers;
   sample: boolean;
-  pinned: Toggles | null;
+  /** Only the switches the person flipped. The rest keep following their answers. */
+  pinned: Partial<Toggles> | null;
   sessionId: string;
   fromSample?: boolean;
   cohort?: string | null;
@@ -159,7 +163,7 @@ export function Navigator() {
   const [step, setStep] = useState<Step>("barrier");
   const [answers, setAnswers] = useState<Answers>(EMPTY);
   const [sample, setSample] = useState(false);
-  const [pinned, setPinned] = useState<Toggles | null>(null);
+  const [pinned, setPinned] = useState<Partial<Toggles> | null>(null);
   const [sessionId, setSessionId] = useState("");
   const [hydrated, setHydrated] = useState(false);
   const [openMore, setOpenMore] = useState(false);
@@ -179,6 +183,8 @@ export function Navigator() {
   const [outcomes, setOutcomes] = useState<string[]>([]);
   const [moveShown, setMoveShown] = useState<string | null>(null);
   const [settlement, setSettlement] = useState<"city" | "town" | "rural" | null>(null);
+  const [tenure, setTenure] = useState<Tenure | null>(null);
+  const fetchEvents = useServerFn(listEvents);
   // Optional charging set-up check on "My place": three taps, closed values, never in the francs.
   const [chargeSetup, setChargeSetup] = useState<ChargeSetup>(NO_SETUP);
   const [sent, setSent] = useState<"idle" | "sending" | "saved" | "failed">("idle");
@@ -296,6 +302,7 @@ export function Navigator() {
   function clearPersonal() {
     setPostcode(null);
     setSettlement(null);
+    setTenure(null);
     setChargeSetup(NO_SETUP);
     setOutcomes([]);
     setMoveShown(null);
@@ -335,7 +342,7 @@ export function Navigator() {
   }
 
   // The insurance switch was removed from the page. Old saved states must not carry it into a row.
-  const toggles: Toggles = { ...(pinned ?? suggestToggles(answers)), insDiscount: false };
+  const toggles: Toggles = { ...suggestToggles(answers), ...(pinned ?? {}), insDiscount: false };
   const priced =
     step === "result" || step === "focus" || (Boolean(answers.barrier && answers.parking) && step !== "barrier");
   const result = priced ? evaluate(answers, toggles, cantonRate ?? official, canton) : null;
@@ -397,7 +404,7 @@ export function Navigator() {
   }
 
   function flip(key: keyof Toggles) {
-    setPinned({ ...toggles, [key]: !toggles[key] });
+    setPinned({ ...(pinned ?? {}), [key]: !toggles[key] });
     setSample(false);
     setSent("idle");
     setSentStage(null);
@@ -471,6 +478,7 @@ export function Navigator() {
       rentDays: result.answers.rentDays ?? null,
       postcode,
       settlement,
+      tenure,
       moveShown,
       outcomes,
       chargeSetup,
@@ -497,6 +505,7 @@ export function Navigator() {
           result.canton ?? "",
           postcode ?? "",
           settlement ?? "",
+          tenure ?? "",
           moveShown ?? "",
           outcomes.join(","),
           `${chargeSetup.main ?? ""}${chargeSetup.backup ?? ""}${chargeSetup.standing ?? ""}`,
@@ -661,6 +670,7 @@ export function Navigator() {
         copied={copied}
         sent={stageSent("final")}
         onFlip={flip}
+        pinnedToggles={pinned}
         onToggleMore={() => setOpenMore((v) => !v)}
         onToggleTrace={() => setOpenTrace((v) => !v)}
         onEdit={() => {
@@ -722,6 +732,13 @@ export function Navigator() {
           setSentStage(null);
         }}
         postcodeSet={postcode != null}
+        tenure={tenure}
+        onTenure={(t) => {
+          setTenure(t);
+          setSent("idle");
+          setSentStage(null);
+        }}
+        onLoadEvents={() => fetchEvents()}
         watch={watch}
         chargeSetup={chargeSetup}
         onChargeSetup={(next) => {
@@ -837,11 +854,12 @@ export function Navigator() {
           }`}
         >
           <div ref={scroller} className="safe-pad flex min-h-0 flex-1 flex-col overflow-y-auto lg:overflow-visible lg:pb-6">
-            <div key={step} className="step-in flex flex-1 flex-col">
-              {body}
-            </div>
+            <SoFarContext.Provider value={showSoFar && result ? { result } : null}>
+              <div key={step} className="step-in flex flex-1 flex-col">
+                {body}
+              </div>
+            </SoFarContext.Provider>
           </div>
-          {soFar ? <div className="lg:hidden">{soFar}</div> : null}
           {sheet ? (
             <FactSheet
               factKey={sheet}
@@ -891,6 +909,14 @@ function Header({
   flush?: boolean;
 }) {
   const index = FLOW.indexOf(step);
+  const soFarCtx = useContext(SoFarContext);
+  const [openYear, setOpenYear] = useState(false);
+  const yrs = soFarCtx?.result.paybackYears ?? null;
+  const yearReady = Boolean(soFarCtx?.result.answers.carClass && soFarCtx?.result.answers.fuel && soFarCtx?.result.answers.km);
+  const soFarChip = !yearReady ? "Year ?" : yrs == null ? "No year" : `Year ${Math.max(1, Math.ceil(yrs))}`;
+  const soFarLabel = !yearReady
+    ? "Years to cover the extra price. Waiting for your answers. Tap to read why."
+    : `Years to cover the extra price: ${soFarChip}. Tap to open the three checkpoints.`;
   // One segment per question. The result fills the whole bar. The five-node rail stays on the desktop side panel only.
   const filled = step === "result" ? FLOW.length : index + 1;
   void planSent;
@@ -914,11 +940,30 @@ function Header({
             {KICKER[step]}
             {index >= 0 ? ` · ${index + 1} of ${FLOW.length}` : ""}
           </p>
-          <div className="mt-2 lg:hidden">
-            <BatteryProgress filled={filled} total={FLOW.length} label={`Step ${Math.min(filled, FLOW.length)} of ${FLOW.length}`} />
+          <div className="mt-2 flex items-center gap-2 lg:hidden">
+            <div className="min-w-0 flex-1">
+              <BatteryProgress filled={filled} total={FLOW.length} label={`Step ${Math.min(filled, FLOW.length)} of ${FLOW.length}`} />
+            </div>
+            {soFarCtx && step !== "barrier" && step !== "result" ? (
+              <button
+                type="button"
+                onClick={() => setOpenYear((v) => !v)}
+                aria-expanded={openYear}
+                aria-label={soFarLabel}
+                className={`inline-flex h-7 shrink-0 items-center gap-1 rounded-full border px-2.5 text-xs font-medium tabular-nums ${openYear ? "border-spruce bg-moss text-moss-ink" : "border-line bg-card"}`}
+              >
+                <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-spruce" />
+                {soFarChip}
+              </button>
+            ) : null}
           </div>
         </div>
       </div>
+      {soFarCtx && openYear && step !== "barrier" && step !== "result" ? (
+        <div className="absolute inset-x-3 top-full z-20 mt-1 overflow-hidden rounded-2xl border border-line shadow-lg lg:hidden">
+          <SoFar result={soFarCtx.result} step={step} />
+        </div>
+      ) : null}
     </header>
   );
 }
@@ -1499,6 +1544,7 @@ function ResultView({
   openTrace,
   copied,
   onFlip,
+  pinnedToggles,
   onToggleMore,
   onToggleTrace,
   onEdit,
@@ -1523,6 +1569,9 @@ function ResultView({
   settlement,
   onSettlement,
   postcodeSet,
+  tenure,
+  onTenure,
+  onLoadEvents,
   watch,
   chargeSetup,
   onChargeSetup,
@@ -1548,6 +1597,7 @@ function ResultView({
   copied: boolean;
   sent: "idle" | "sending" | "saved" | "failed";
   onFlip: (key: keyof Toggles) => void;
+  pinnedToggles: Partial<Toggles> | null;
   onToggleMore: () => void;
   onToggleTrace: () => void;
   onEdit: () => void;
@@ -1570,7 +1620,11 @@ function ResultView({
   settlement: "city" | "town" | "rural" | null;
   onSettlement: (v: "city" | "town" | "rural" | null) => void;
   postcodeSet: boolean;
+  tenure: Tenure | null;
+  onTenure: (t: Tenure | null) => void;
+  onLoadEvents: () => Promise<import("@/lib/navigator/session").PublicEvent[]>;
 }) {
+  const rights = useMemo(() => rightsFor({ canton, tenure, postcodeSet, result }), [canton, tenure, postcodeSet, result]);
   const sens = useMemo(() => sensitivity(result), [result]);
   const [sheetKind, setSheetKind] = useState<SheetKind | null>(null);
   const frame = result.answers.keepYears ?? 8;
@@ -1620,6 +1674,95 @@ function ResultView({
     { key: "tariff", title: "A cheaper home tariff", hint: "Only matters for the home share of charging." },
     { key: "pv", title: "Solar covers part of home charging", hint: "Only if the roof is already there. An illustrative share of home charging at a lower rate. Not the cost of the panels, and not a federal solar grant." },
   ];
+  // The note is read at the moment of the tap, before the chip flips, so it says what that tap did.
+  const [useChangeLine, setUseChangeLine] = useState<string | null>(null);
+  const notes = useMemo(() => notesForUses(result, pinnedToggles), [result, pinnedToggles]);
+  const leversSection = (
+        <section id="levers">
+          <h2 className="font-medium">Try a change</h2>
+          <p className="mt-1 text-sm leading-relaxed text-muted">
+            Each switch below recalculates at once, and says what it did. The prices are rough class figures, not a quote and not an offer.
+          </p>
+          <p className="mt-3 text-xs font-medium tracking-widest text-muted uppercase">Read first, no change to the figures</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {(
+              [
+                result.answers.barrier === "trips" ||
+                result.toggles.rightSize ||
+                result.answers.uses.includes("holiday") ||
+                result.answers.uses.includes("long")
+                  ? { fact: "two-for-one" as const, label: "Read 2:1" }
+                  : null,
+                result.answers.barrier === "charging" ||
+                result.answers.parking === "shared" ||
+                result.answers.parking === "none" ||
+                result.answers.parking === "unsure"
+                  ? { fact: "mobile-charger" as const, label: "Read mobile charger" }
+                  : null,
+                result.answers.barrier === "trust" || result.toggles.used || result.answers.usedStance === "yes"
+                  ? { fact: "battery" as const, label: "Read battery check" }
+                  : null,
+                result.answers.barrier === "cost" || result.answers.barrier === "unsure" || !result.withinHorizon
+                  ? { fact: "public-tariff" as const, label: "Why prices are not live" }
+                  : null,
+                !result.canton ? { fact: "canton-tax" as const, label: "Why the tax is not your canton" } : null,
+                result.answers.parking === "house" || result.answers.parking === "own" || result.toggles.pv
+                  ? { fact: "local-grant" as const, label: "Grants and a solar roof" }
+                  : null,
+              ].filter((item) => item != null)
+                .slice(0, 3)
+            ).map((item) => (
+              <button key={item.fact} type="button" onClick={() => onFact(item.fact)} className="rounded-full border border-line bg-card px-3 py-2 text-sm">
+                {item.label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-3 text-xs font-medium tracking-widest text-muted uppercase">What you use the car for</p>
+          <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="What you use the car for">
+            {USES.map((u) => {
+              const on = result.answers.uses.includes(u.id);
+              return (
+                <button
+                  key={u.id}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => {
+                    setUseChangeLine(notes.find((n) => n.id === u.id)?.text ?? null);
+                    onUse(u.id);
+                  }}
+                  className={`min-h-11 rounded-full border px-3 py-2 text-sm ${on ? "border-spruce bg-spruce text-spruce-ink" : "border-line bg-card"}`}
+                >
+                  {u.title}
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-1 text-sm leading-snug text-muted" aria-live="polite">
+            {useChangeLine ?? `Moves the francs: ${notes.filter((n) => n.kind === "francs").map((n) => USES.find((u) => u.id === n.id)?.title.toLowerCase()).join(", ") || "none right now"}. The others change the wording and which move comes first, not a franc.`}
+          </p>
+          <div className="mt-3 flex flex-col gap-2">
+            {primary.map((row) => (
+              <ToggleRow key={row.key} row={row} on={result.toggles[row.key]} result={result} onFlip={onFlip} />
+            ))}
+          </div>
+          {result.towingBlocked ? (
+            <p className="mt-3 rounded-2xl bg-moss px-4 py-3 text-sm leading-relaxed text-moss-ink">
+              Towing is on, so the smaller car was not applied. Renting a few days does not replace a tow car.
+            </p>
+          ) : null}
+          <button type="button" onClick={onToggleMore} className="mt-3 flex min-h-11 w-full items-center justify-between text-sm font-medium" aria-expanded={openMore}>
+            Finer assumptions
+            <ChevronDown className={`h-4 w-4 transition-transform ${openMore ? "rotate-180" : ""}`} />
+          </button>
+          {openMore ? (
+            <div className="mt-2 flex flex-col gap-2">
+              {more.map((row) => (
+                <ToggleRow key={row.key} row={row} on={result.toggles[row.key]} result={result} onFlip={onFlip} />
+              ))}
+            </div>
+          ) : null}
+        </section>
+  );
 
   return (
     <div className="flex flex-1 flex-col">
@@ -1841,82 +1984,7 @@ function ResultView({
           <details className="mt-4 border-t border-line pt-1">
             <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium text-spruce">Switches, what you use the car for, and what would have to be true</summary>
             <div className="mt-2 flex flex-col gap-4">
-        <section id="levers">
-          <h2 className="font-medium">Try a change</h2>
-          <p className="mt-1 text-sm leading-relaxed text-muted">
-            Each switch recalculates at once. The prices are rough class figures, not a quote and not an offer.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {(
-              [
-                result.answers.barrier === "trips" ||
-                result.toggles.rightSize ||
-                result.answers.uses.includes("holiday") ||
-                result.answers.uses.includes("long")
-                  ? { fact: "two-for-one" as const, label: "Read 2:1" }
-                  : null,
-                result.answers.barrier === "charging" ||
-                result.answers.parking === "shared" ||
-                result.answers.parking === "none" ||
-                result.answers.parking === "unsure"
-                  ? { fact: "mobile-charger" as const, label: "Read mobile charger" }
-                  : null,
-                result.answers.barrier === "trust" || result.toggles.used || result.answers.usedStance === "yes"
-                  ? { fact: "battery" as const, label: "Read battery check" }
-                  : null,
-                result.answers.barrier === "cost" || result.answers.barrier === "unsure" || !result.withinHorizon
-                  ? { fact: "public-tariff" as const, label: "Why prices are not live" }
-                  : null,
-                !result.canton ? { fact: "canton-tax" as const, label: "Why the tax is not your canton" } : null,
-                result.answers.parking === "house" || result.answers.parking === "own" || result.toggles.pv
-                  ? { fact: "local-grant" as const, label: "Grants and a solar roof" }
-                  : null,
-              ].filter((item) => item != null)
-                .slice(0, 3)
-            ).map((item) => (
-              <button key={item.fact} type="button" onClick={() => onFact(item.fact)} className="rounded-full border border-line bg-card px-3 py-2 text-sm">
-                {item.label}
-              </button>
-            ))}
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {USES.map((u) => {
-              const on = result.answers.uses.includes(u.id);
-              return (
-                <button
-                  key={u.id}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => onUse(u.id)}
-                  className={`rounded-full border px-3 py-2 text-sm ${on ? "border-spruce bg-spruce text-spruce-ink" : "border-line bg-card"}`}
-                >
-                  {u.title}
-                </button>
-              );
-            })}
-          </div>
-          <div className="mt-3 flex flex-col gap-2">
-            {primary.map((row) => (
-              <ToggleRow key={row.key} row={row} on={result.toggles[row.key]} result={result} onFlip={onFlip} />
-            ))}
-          </div>
-          {result.towingBlocked ? (
-            <p className="mt-3 rounded-2xl bg-moss px-4 py-3 text-sm leading-relaxed text-moss-ink">
-              Towing is on, so the smaller car was not applied. Renting a few days does not replace a tow car.
-            </p>
-          ) : null}
-          <button type="button" onClick={onToggleMore} className="mt-3 flex min-h-11 w-full items-center justify-between text-sm font-medium" aria-expanded={openMore}>
-            Finer assumptions
-            <ChevronDown className={`h-4 w-4 transition-transform ${openMore ? "rotate-180" : ""}`} />
-          </button>
-          {openMore ? (
-            <div className="mt-2 flex flex-col gap-2">
-              {more.map((row) => (
-                <ToggleRow key={row.key} row={row} on={result.toggles[row.key]} result={result} onFlip={onFlip} />
-              ))}
-            </div>
-          ) : null}
-        </section>
+        {leversSection}
 
         <WhatWouldHaveToBeTrue
           result={result}
@@ -1931,82 +1999,7 @@ function ResultView({
               </WhatIf>
             ) : (
               <>
-        <section id="levers">
-          <h2 className="font-medium">Try a change</h2>
-          <p className="mt-1 text-sm leading-relaxed text-muted">
-            Each switch recalculates at once. The prices are rough class figures, not a quote and not an offer.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {(
-              [
-                result.answers.barrier === "trips" ||
-                result.toggles.rightSize ||
-                result.answers.uses.includes("holiday") ||
-                result.answers.uses.includes("long")
-                  ? { fact: "two-for-one" as const, label: "Read 2:1" }
-                  : null,
-                result.answers.barrier === "charging" ||
-                result.answers.parking === "shared" ||
-                result.answers.parking === "none" ||
-                result.answers.parking === "unsure"
-                  ? { fact: "mobile-charger" as const, label: "Read mobile charger" }
-                  : null,
-                result.answers.barrier === "trust" || result.toggles.used || result.answers.usedStance === "yes"
-                  ? { fact: "battery" as const, label: "Read battery check" }
-                  : null,
-                result.answers.barrier === "cost" || result.answers.barrier === "unsure" || !result.withinHorizon
-                  ? { fact: "public-tariff" as const, label: "Why prices are not live" }
-                  : null,
-                !result.canton ? { fact: "canton-tax" as const, label: "Why the tax is not your canton" } : null,
-                result.answers.parking === "house" || result.answers.parking === "own" || result.toggles.pv
-                  ? { fact: "local-grant" as const, label: "Grants and a solar roof" }
-                  : null,
-              ].filter((item) => item != null)
-                .slice(0, 3)
-            ).map((item) => (
-              <button key={item.fact} type="button" onClick={() => onFact(item.fact)} className="rounded-full border border-line bg-card px-3 py-2 text-sm">
-                {item.label}
-              </button>
-            ))}
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {USES.map((u) => {
-              const on = result.answers.uses.includes(u.id);
-              return (
-                <button
-                  key={u.id}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => onUse(u.id)}
-                  className={`rounded-full border px-3 py-2 text-sm ${on ? "border-spruce bg-spruce text-spruce-ink" : "border-line bg-card"}`}
-                >
-                  {u.title}
-                </button>
-              );
-            })}
-          </div>
-          <div className="mt-3 flex flex-col gap-2">
-            {primary.map((row) => (
-              <ToggleRow key={row.key} row={row} on={result.toggles[row.key]} result={result} onFlip={onFlip} />
-            ))}
-          </div>
-          {result.towingBlocked ? (
-            <p className="mt-3 rounded-2xl bg-moss px-4 py-3 text-sm leading-relaxed text-moss-ink">
-              Towing is on, so the smaller car was not applied. Renting a few days does not replace a tow car.
-            </p>
-          ) : null}
-          <button type="button" onClick={onToggleMore} className="mt-3 flex min-h-11 w-full items-center justify-between text-sm font-medium" aria-expanded={openMore}>
-            Finer assumptions
-            <ChevronDown className={`h-4 w-4 transition-transform ${openMore ? "rotate-180" : ""}`} />
-          </button>
-          {openMore ? (
-            <div className="mt-2 flex flex-col gap-2">
-              {more.map((row) => (
-                <ToggleRow key={row.key} row={row} on={result.toggles[row.key]} result={result} onFlip={onFlip} />
-              ))}
-            </div>
-          ) : null}
-        </section>
+        {leversSection}
 
               </>
             )
@@ -2032,17 +2025,6 @@ function ResultView({
           ) : null}
           {panel === "place" ? (
             <>
-        <ChargeCheck
-          setup={chargeSetup}
-          onSetup={(next) => {
-            if (!setupDone(chargeSetup) && setupDone(next)) onAction("charge_check");
-            onChargeSetup(next);
-          }}
-          workAccess={result.answers.workAccess}
-          parking={result.answers.parking}
-          kwhPer100={SPECS[result.bevClass].kwh}
-          onNext={() => document.getElementById("next-move")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-        />
         <LocalPerson
           canton={canton}
           cantonState={cantonState}
@@ -2055,6 +2037,19 @@ function ResultView({
           postcodeSet={postcodeSet}
         />
 
+        <RightsCard rows={rights} tenure={tenure} onTenure={onTenure} />
+
+        <ChargeCheck
+          setup={chargeSetup}
+          onSetup={(next) => {
+            if (!setupDone(chargeSetup) && setupDone(next)) onAction("charge_check");
+            onChargeSetup(next);
+          }}
+          workAccess={result.answers.workAccess}
+          parking={result.answers.parking}
+          kwhPer100={SPECS[result.bevClass].kwh}
+          onNext={() => document.getElementById("next-move")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+        />
         <WatchList rows={watch} onFact={onFact} today={new Date().toISOString().slice(0, 10)} />
 
         <section>
@@ -2225,22 +2220,46 @@ function ResultView({
           ) : null}
         </ExploreTabs>
 
-        <button type="button" onClick={onEdit} className="rounded-2xl border border-line bg-card px-4 py-3 text-left">
+        {result.headline === "Keep this car" && result.usedCeiling ? <UsedPriceCard result={result} /> : null}
+
+        <div className="rounded-2xl border border-line bg-card px-4 py-3">
           <span className="block text-xs font-medium tracking-widest text-muted uppercase">This case</span>
           <span className="mt-1 block text-sm">
             {labelClass(result.iceClass)} · {labelFuel(result.answers.fuel ?? "petrol")} · {kmPhrase(result.answers.km, result.km, result.kmSource === "default" ? result.persona.title : undefined)} ·{" "}
             {parkPhrase(result.answers.parking)}
+            {" · "}
+            {canton ? `Canton ${canton}` : "no canton yet"}
+            {tenure ? ` · ${tenure === "own" ? "owner" : "tenant"}` : ""}
           </span>
-          <span className="mt-1 block text-sm font-medium text-spruce">Edit answers</span>
-        </button>
+          <span className="mt-1 flex flex-wrap gap-x-5">
+            <button type="button" onClick={onEdit} className="min-h-11 text-sm font-medium text-spruce underline underline-offset-2">
+              Edit answers
+            </button>
+            <button
+              type="button"
+              onClick={() => openPanel("place", "place")}
+              className="min-h-11 text-sm font-medium text-spruce underline underline-offset-2"
+            >
+              Add canton, postcode, own or rent
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onAction("dossier");
+                printDossier();
+              }}
+              className="min-h-11 text-sm font-medium text-spruce underline underline-offset-2"
+            >
+              Decision file
+            </button>
+          </span>
+        </div>
 
         <div id="keep" className="flex flex-col gap-4">
-        <ShareNote result={result} onAction={onAction} />
-
         <section id="decision-file-card" className="rounded-2xl border border-line bg-card p-4">
-          <h2 className="font-medium">A decision file for the car in front of you</h2>
+          <h2 className="font-medium">Take it with you</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
-            One page to print or save as a PDF: your result, the figures it used, five questions for a seller, the battery certificate fields, four lease questions, and empty boxes for the model and the quote. Made on this device. Nothing is sent.
+            One page to print or save as a PDF: your result, the figures it used, questions for a seller, the battery certificate fields, lease questions and empty boxes for the model and the quote. Made on this device. Nothing is sent.
           </p>
           <button
             type="button"
@@ -2255,7 +2274,11 @@ function ResultView({
           </button>
         </section>
 
-        <section id="plan" className="rounded-2xl border border-line bg-card p-4">
+        <details className="rounded-2xl border border-line bg-card px-4">
+          <summary className="min-h-12 cursor-pointer py-3 text-sm font-medium">Share it, set a reminder, or keep a copy</summary>
+          <div className="flex flex-col gap-4 pb-4">
+            <ShareNote result={result} onAction={onAction} />
+        <section id="plan" className="border-t border-line pt-4">
           <h2 className="font-medium">Keep the plan</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
             {sent === "sending"
@@ -2280,6 +2303,11 @@ function ResultView({
             </button>
           </div>
         </section>
+          </div>
+        </details>
+
+        <MoreToExplore tenure={tenure} />
+        <InPerson canton={canton} load={onLoadEvents} />
 
         </div>
 
@@ -3077,12 +3105,13 @@ function ToggleRow({
   );
 }
 
+const SoFarContext = createContext<{ result: Result } | null>(null);
+
 function SoFar({ result, step }: { result: Result; step: Step }) {
   const [pick, setPick] = useState<"study" | "yours" | "far">("yours");
   const years = result.paybackYears;
   const ready = Boolean(result.answers.carClass && result.answers.fuel && result.answers.km);
   const width = !ready || years == null ? 0 : (Math.min(years, 32) / 32) * 100;
-  const past = years != null && years > 8;
   const waiting =
     step === "class"
       ? "The class sets the price and the fuel. A year before that would not be your car."
@@ -3131,7 +3160,7 @@ function SoFar({ result, step }: { result: Result; step: Step }) {
       </div>
       <div className="relative mt-4 h-2 rounded-full bg-line" aria-hidden>
         <div
-          className={`h-full rounded-full motion-safe:transition-[width] motion-safe:duration-500 ${past ? "bg-amber-ink" : "bg-spruce"}`}
+          className="h-full rounded-full bg-spruce motion-safe:transition-[width] motion-safe:duration-500"
           style={{ width: `${width}%` }}
         />
         {checkpoints.map((c) =>
@@ -3139,7 +3168,7 @@ function SoFar({ result, step }: { result: Result; step: Step }) {
             <span
               key={c.id}
               className={`absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 motion-safe:transition-[left] motion-safe:duration-500 ${
-                c.id === "yours" ? (past ? "border-amber-ink bg-amber-ink" : "border-spruce bg-spruce") : "border-ink bg-card"
+                c.id === "yours" ? "border-spruce bg-spruce" : "border-ink bg-card"
               } ${pick === c.id ? "ring-4 ring-spruce/20" : ""}`}
               style={{ left: `${c.at}%` }}
             />

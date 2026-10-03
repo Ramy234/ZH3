@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { ACTIONS_SEED, NEUTRAL_PUBLISHERS } from "./actions.ts";
 import { FACT_VIEW, FACTS } from "./facts.ts";
 import { WATCH_SEED } from "./watch.ts";
+import { RIGHTS_LINKS } from "./rights.ts";
 
 // Every outside link the page can show, with where it sits.
 type L = { where: string; href: string; note: string };
@@ -14,13 +15,14 @@ function allLinks(): L[] {
     for (const line of v.lines) if (line.link) out.push({ where: `fact ${k} line`, href: line.link.href, note: "" });
   }
   for (const [k, f] of Object.entries(FACTS)) if (f.url) out.push({ where: `fact ${k} source`, href: f.url, note: "" });
+  for (const [k, l] of Object.entries(RIGHTS_LINKS)) out.push({ where: `rights ${k}`, href: l.href, note: l.note });
   for (const w of WATCH_SEED) out.push({ where: `watch ${w.id}`, href: w.url, note: "" });
   return out;
 }
 
 const HOSTS = [
   "energieschweiz.ch", "tcs.ch", "admin.ch", "elcom.admin.ch", "energiefranken.ch", "iea.org", "bnef.com", "srf.ch", "mozillafoundation.org", "carscoops.com",
-  "cnil.fr", "ethique.gouv.qc.ca", "designwerk.com", "mobility.ch", "electrive.com", "zurich.ch", "swiss-emobility.ch", "bfe.admin.ch",
+  "cnil.fr", "ethique.gouv.qc.ca", "designwerk.com", "mobility.ch", "electrive.com", "zurich.ch", "swiss-emobility.ch", "bfe.admin.ch", "zh.ch", "lu.ch",
 ];
 /** A company, not a public body or a test. Its link may only appear when the note says what it is. */
 const COMPANY = ["designwerk.com", "mobility.ch", "zurich.ch", "electrive.com", "bnef.com", "carscoops.com"];

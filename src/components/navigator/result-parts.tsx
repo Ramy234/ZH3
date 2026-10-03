@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { Check } from "lucide-react";
 import { OUTCOMES, type Outcome, type Ranked } from "@/lib/navigator/actions";
-import { moveAt, paybackWord, sliderDrivers, type Sensitivity } from "@/lib/navigator/sensitivity";
+import { moveAt, paybackWord, scenario as runAlone, sliderDrivers, type Sensitivity } from "@/lib/navigator/sensitivity";
 import { statusWord } from "@/lib/navigator/numbers";
 import { describe, type DatasetRow } from "@/lib/navigator/dataset";
 import { dateLabel } from "@/components/navigator/numbers-ui";
@@ -206,17 +206,18 @@ export function WhatIf({
       <p className="mt-1 text-sm leading-relaxed text-muted">
         These are assumptions, not quotes. Drag one and the same sum runs again. The dashed line above is your result with your change.
       </p>
-      <p className="mt-3 text-sm leading-relaxed" aria-live="polite">
+      <div className="mt-3 text-sm leading-relaxed" aria-live="polite">
+        <p className="m-0">
+          Your answers: <span className="font-medium">{paybackWord(sens.base)}</span>, {chf(result.saving)} a year. All assumptions kind: <span className="font-medium">{paybackWord(sens.best)}</span>. All unkind: <span className="font-medium">{paybackWord(sens.worst)}</span>.
+        </p>
         {moved && sc ? (
-          <>
-            With your changes: <span className="font-medium">{paybackWord({ payback: sc.payback, saving: sc.saving })}</span>, saving {chf(sc.saving)} a year. Without: <span className="font-medium">{paybackWord(sens.base)}</span>, {chf(result.saving)}.
-          </>
+          <p className="m-0 mt-1 rounded-xl bg-moss px-3 py-2 text-moss-ink">
+            With your changes: <span className="font-medium">{paybackWord({ payback: sc.payback, saving: sc.saving })}</span>, saving {chf(sc.saving)} a year.
+          </p>
         ) : (
-          <>
-            All assumptions moved the kind way: <span className="font-medium">{paybackWord(sens.best)}</span>. The hard way: <span className="font-medium">{paybackWord(sens.worst)}</span>. Yours: <span className="font-medium">{paybackWord(sens.base)}</span>.
-          </>
+          <p className="m-0 mt-1 text-muted">Drag a slider below. Your own line appears here and on the chart.</p>
         )}
-      </p>
+      </div>
       <ul className="m-0 mt-4 list-none space-y-5 p-0">
         {shown.map((d) => {
           const v = picks[d.id] ?? 0;
@@ -246,6 +247,14 @@ export function WhatIf({
                 <span>{d.low}</span>
                 <span className="text-right">{d.high}</span>
               </div>
+              {v !== 0 ? (
+                <p className="mt-1 text-xs font-medium leading-snug text-spruce">
+                  {(() => {
+                    const alone = runAlone(result, { [d.id]: v / 4 });
+                    return alone ? `This one alone: ${paybackWord({ payback: alone.paybackYears != null && alone.saving > 40 ? alone.paybackYears : null, saving: alone.saving })}, ${chf(alone.saving)} a year.` : "This one has no effect on your case.";
+                  })()}
+                </p>
+              ) : null}
               <p className="mt-1 text-xs leading-snug text-muted">
                 {d.id === "km"
                   ? "Your tap. The bands are under 10,000, 10,000 to 20,000 and over 20,000 km a year."

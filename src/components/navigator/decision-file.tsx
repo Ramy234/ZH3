@@ -54,6 +54,18 @@ export function DecisionFile({ result, caseLine, verdict, drivers, origin }: { r
         </tbody>
       </table>
 
+      {result.usedCeiling ? (
+        <>
+          <h2>If I look at used electric cars: the price to watch for</h2>
+          <p>
+            {result.usedCeiling.saving <= 40
+              ? `On running costs alone nothing covers the extra price. A certified used one comes out even at about ${chf(result.usedCeiling.chf)}.`
+              : `To cover its extra price inside ${result.usedCeiling.window} years on these figures, a certified used one would have to cost no more than about ${chf(result.usedCeiling.chf)}.`}{" "}
+            The class reference for a used one is {chf(result.usedCeiling.classUsed)}. Worked out from my car's resale ({chf(result.usedCeiling.resale)}), the yearly saving ({chf(result.usedCeiling.saving)}) times {result.usedCeiling.window} years, minus charging gear and battery check ({chf(result.usedCeiling.gear)}). A class figure, not a listing.
+          </p>
+        </>
+      ) : null}
+
       <h2>What I told the check</h2>
       <p>{caseLine}</p>
       {drivers.length ? <p>Figures that move this result most: {drivers.join(", ")}.</p> : null}

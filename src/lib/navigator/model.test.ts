@@ -145,3 +145,21 @@ test("going without a car: a travel card plus rented days, the car sold once, ne
   assert.equal(r.series[3]!.keep, r.annualKeep * 3);
   assert.equal(r.series[3]!.swap, r.cash + r.annualSwap * 3);
 });
+
+test("used-car ceiling: resale plus the saving over the window, minus gear and the battery check", () => {
+  const a = { ...SAMPLE, carClass: "compact" as const, km: "mid" as const, fuel: "petrol" as const };
+  const r = evaluate(a, suggestToggles(a), null, null);
+  const u = r.usedCeiling!;
+  assert.ok(u);
+  assert.equal(u.window, 8);
+  assert.equal(u.resale, 8500);
+  const expected = Math.round((u.resale + u.saving * 8 - u.gear) / 100) * 100;
+  assert.equal(u.chf, expected);
+  assert.equal(u.reachable, u.resale + u.saving * 8 - u.gear >= u.classUsed);
+  // A used car at exactly the ceiling reaches the window, give or take the rounding to a hundred.
+  const atCeiling = evaluate({ ...a, listPrice: u.chf }, { ...suggestToggles(a), used: true }, null, null);
+  assert.ok(atCeiling.paybackYears != null && atCeiling.paybackYears <= 8.2, `payback ${atCeiling.paybackYears}`);
+  // Already electric: no ceiling.
+  const e = evaluate({ ...a, fuel: "electric" as const }, suggestToggles({ ...a, fuel: "electric" as const }), null, null);
+  assert.equal(e.usedCeiling, null);
+});

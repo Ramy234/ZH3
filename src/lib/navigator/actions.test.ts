@@ -79,3 +79,28 @@ test("actions: the new ask actions keep to the rules (no company, no car model, 
     assert.ok(!/renault|tesla|byd|zurich|z-volt/i.test(JSON.stringify(a)), `${id} names a brand`);
   }
 });
+
+test("actions audit: across every combination of closed answers, the moves stay coherent", () => {
+  const barriers = ["charging", "cost", "trips", "trust", "unsure"] as const;
+  const parkings = ["house", "shared", "none"] as const;
+  const fuels = ["petrol", "electric"] as const;
+  const works = [null, "yes", "no"] as const;
+  const stances = [null, "yes", "no"] as const;
+  const useSets = [["commute", "everyday"], ["towing"]] as const;
+  let seen = 0;
+  for (const barrier of barriers) for (const parking of parkings) for (const fuel of fuels) for (const workAccess of works) for (const usedStance of stances) for (const uses of useSets) {
+    const a = A({ ...SAMPLE, barrier, parking, fuel, workAccess, usedStance, uses: [...uses] });
+    const r = evaluate(a, suggestToggles(a));
+    const ids = ranked(a).map((x) => x.action.id);
+    const ctx = JSON.stringify({ barrier, parking, fuel, workAccess, usedStance, uses });
+    seen++;
+    assert.ok(ids.length > 0, `a move exists ${ctx}`);
+    assert.equal(new Set(ids).size, ids.length, `no duplicate ${ctx}`);
+    if (usedStance === "no") assert.ok(!r.toggles.used && !ids.includes("check-battery"), `stance no respected ${ctx}`);
+    if (fuel === "electric") assert.ok(!ids.includes("weekend-test") && !ids.includes("check-fuel-receipts"), `electric driver ${ctx}`);
+    if (workAccess === "yes" || workAccess === "no") assert.ok(!ids.includes("ask-employer"), `work already answered ${ctx}`);
+    if ((uses as readonly string[]).includes("towing")) assert.ok(!ids.includes("ask-two-for-one-terms"), `towing ${ctx}`);
+    if (ids.includes("set-price-ceiling")) assert.equal(r.headline === "Keep this car" || r.paybackYears == null || r.paybackYears > 8, true, `price ceiling only on keep ${ctx}`);
+  }
+  assert.ok(seen > 500);
+});

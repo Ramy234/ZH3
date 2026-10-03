@@ -124,3 +124,7 @@ Every new table gets row-level security, every new action needs a neutral publis
 **Earlier items now included in the same push:** the result-page reshape (next move, four panels), What if sliders, rebuilt climate view, urban/rural card and optional postcode, idea-sheet rewrites, front-page cards.
 
 **Still open:** the petrol default and class-level figures (see DECISIONS.md, evening entry of 3 Oct); a static postcode table (needs permission to download a dataset); weekly n8n jobs are written but inactive; the Google Sheet template is stale; row-level low and high figures; German and French; Christian's confirmation of the 2:1 wording.
+
+**Added 3 Oct 2026 (late night):** price-to-watch card for the "keep" ending, "What applies to you" (tax, grants, tenant, owner, solar, commune) with an own-or-rent tap, "More to explore", the in-person events table (empty), a small years chip on phones, effect lines on the use chips, and an audit of all next moves (see DECISIONS.md).
+
+**Gap codes with no sheet or move yet:** H3.4 company-car rules, H4.1 too few models (not ours to answer), H5.3 safety and power-supply worries, H5.4 using the car abroad, H5.5 personal safety while charging, H6.2 repair and service, H7.2 battery production and recycling (needs the LCA material, whose zip arrived empty).

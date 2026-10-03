@@ -20,6 +20,10 @@ export type Cond = {
   parking?: string[];
   workAccess?: string[];
   usedStance?: string[];
+  /** Fails when the person gave one of these answers. */
+  notUsedStance?: string[];
+  /** Fails when the person gave one of these answers. An unanswered question does not fail it. */
+  notWorkAccess?: string[];
   fuel?: string[];
   km?: string[];
   use?: string[];
@@ -119,7 +123,7 @@ export const ACTIONS_SEED: Action[] = [
     closes: ["charging"],
     drivers: ["home", "public"],
     because: "charging at work could carry most of your kilometres",
-    when: [{ workAccess: ["ask", "yes"] }, { parking: HARD, use: ["commute"] }, { chargeLevel: ["missing"] }],
+    when: [{ workAccess: ["ask"] }, { parking: HARD, use: ["commute"], notWorkAccess: ["no", "yes"] }, { chargeLevel: ["missing"], notWorkAccess: ["no", "yes"] }],
     panel: "whatif",
     lever: "work",
   },
@@ -152,7 +156,7 @@ export const ACTIONS_SEED: Action[] = [
     closes: ["cost", "trust"],
     drivers: ["price"],
     because: "a used car could cut the price gap, and the battery is the risk",
-    when: [{ toggle: { used: true } }, { barrier: ["cost", "trust"] }, { usedStance: ["yes"] }],
+    when: [{ toggle: { used: true } }, { barrier: ["cost", "trust"], notUsedStance: ["no", "new"] }, { usedStance: ["yes"] }],
   },
   {
     id: "price-rental-days",
@@ -184,7 +188,7 @@ export const ACTIONS_SEED: Action[] = [
     closes: ["trust"],
     drivers: ["km"],
     because: "you want proof before you believe the numbers",
-    when: [{ barrier: ["trust"] }, { usedStance: ["new", "no"] }],
+    when: [{ barrier: ["trust"], fuel: ["petrol", "diesel", "hybrid"] }, { usedStance: ["new", "no"], fuel: ["petrol", "diesel", "hybrid"] }],
   },
   {
     id: "trial-routes",
@@ -259,6 +263,24 @@ export const ACTIONS_SEED: Action[] = [
     run: "reminder",
   },
   {
+    id: "set-price-ceiling",
+    version: 1,
+    kind: "plan",
+    status: "live",
+    title: "Write down the most you would pay, before you look",
+    text: "Keeping is the fair answer today. If you still want to watch the used market, the card below works out the price at which a certified used electric car would cover its extra price. Write it on the decision file first. Above it, the answer stays keep.",
+    lines: ["Copy the price from the card below.", "Set a reminder to look again in six months.", "Open a listing only after you have written the number down."],
+    minutes: 5,
+    closes: ["keep", "cost"],
+    drivers: ["price", "resale"],
+    because: "your result says keep, and a used electric car only changes that below a certain price",
+    when: [
+      { ending: ["keep"], fuel: ["petrol", "diesel", "hybrid"], barrier: ["cost", "unsure"] },
+      { ending: ["keep"], fuel: ["petrol", "diesel", "hybrid"], usedStance: ["yes"] },
+      { ending: ["keep"], fuel: ["petrol", "diesel", "hybrid"], toggle: { used: true } },
+    ],
+  },
+  {
     id: "ask-seller",
     version: 1,
     kind: "ask",
@@ -306,7 +328,7 @@ export const ACTIONS_SEED: Action[] = [
     closes: ["trips"],
     drivers: ["price", "resale"],
     because: "the rare trips are what you worry about, and a promise only helps if it is written down",
-    when: [{ barrier: ["trips"] }, { toggle: { rightSize: true } }],
+    when: [{ barrier: ["trips"], noUse: ["towing"] }, { toggle: { rightSize: true }, noUse: ["towing"] }],
   },
   {
     id: "see-commune",
@@ -385,6 +407,8 @@ export function matches(c: Cond, f: Features): boolean {
   if (!has(c.parking, f.parking)) return false;
   if (!has(c.workAccess, f.workAccess)) return false;
   if (!has(c.usedStance, f.usedStance)) return false;
+  if (c.notUsedStance && f.usedStance && c.notUsedStance.includes(f.usedStance)) return false;
+  if (c.notWorkAccess && f.workAccess && c.notWorkAccess.includes(f.workAccess)) return false;
   if (!has(c.fuel, f.fuel)) return false;
   if (!has(c.km, f.km)) return false;
   if (!has(c.chargeLevel, f.chargeLevel)) return false;

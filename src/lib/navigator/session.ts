@@ -277,6 +277,26 @@ export const listWatch = createServerFn({ method: "GET" }).handler(async (): Pro
   return WATCH_SEED;
 });
 
+export type PublicEvent = { id: string; title: string; startsOn: string; place: string; canton: string | null; organiser: string; url: string; note: string | null };
+
+/** Public in-person events, live and not past. Empty until a person adds rows. Reading collects nothing from the visitor. */
+export const listEvents = createServerFn({ method: "GET" }).handler(async (): Promise<PublicEvent[]> => {
+  try {
+    const sql = await getSql();
+    const rows = await sql<{ id: string; title: string; starts_on: string; ends_on: string | null; place: string; canton: string | null; organiser: string; url: string; note: string | null }>`
+      select id, title, starts_on::text as starts_on, ends_on::text as ends_on, place, canton, organiser, url, note
+      from bev_events
+      where status = 'live' and coalesce(ends_on, starts_on) >= current_date
+      order by starts_on asc limit 50`;
+    return rows
+      .filter((r) => r.url.startsWith("https://"))
+      .map((r) => ({ id: r.id, title: r.title, startsOn: r.starts_on.slice(0, 10), place: r.place, canton: r.canton, organiser: r.organiser, url: r.url, note: r.note }));
+  } catch {
+    // table not migrated yet: nothing is listed
+    return [];
+  }
+});
+
 export type DatasetPayload = { version: string; rows: DatasetRow[]; source: "database" | "seed" };
 
 /** Newest published dataset version. Falls back to the built-in seed if the table is missing or empty. */
@@ -339,6 +359,8 @@ export type SessionBag = {
   postcode?: string | null;
   /** Optional. Asked as three taps when no postcode is given. */
   settlement?: string | null;
+  /** Optional. Own or rent the home. A closed value, used only to show the right rules and links. */
+  tenure?: string | null;
   /** The next move shown first (an action id), and the person's taps on moves: "<id>.done" and so on. Closed lists. */
   moveShown?: string | null;
   outcomes?: string[];
@@ -366,6 +388,7 @@ const ONE_OF = {
   worry: ["tenant", "winter", "refuse"],
   unclear: ["km", "payback", "price", "wording"],
   settlement: ["city", "town", "rural"],
+  tenure: ["own", "rent"],
   canton: ["ZH", "BE", "LU", "UR", "SZ", "OW", "NW", "GL", "ZG", "FR", "SO", "BS", "BL", "SH", "AR", "AI", "SG", "GR", "AG", "TG", "TI", "VD", "VS", "NE", "GE", "JU"],
   persona: ["urbanRenter", "familyHome", "distance", "cost", "skeptic", "occasional"],
   toggle: ["home", "work", "rightSize", "used", "publicPlan", "tariff", "pv", "insDiscount"],
@@ -470,6 +493,7 @@ export const saveSession = createServerFn({ method: "POST" })
       location: {
         canton: one(data.canton, ONE_OF.canton),
         settlement: one(data.settlement, ONE_OF.settlement),
+        tenure: one(data.tenure, ONE_OF.tenure),
         plz2: postcode ? postcode.slice(0, 2) : null,
       },
       answers: {
