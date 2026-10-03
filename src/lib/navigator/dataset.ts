@@ -31,6 +31,7 @@ const RATE_META: Record<string, { unit: string; note: string }> = {
   pv: { unit: "CHF/kWh", note: "Own solar power, opportunity cost." },
   pvShare: { unit: "share", note: "Share of home kilometres charged from own solar when the switch is on." },
   rentalDay: { unit: "CHF/day", note: "Day rate for a larger rental car. Not a rental company." },
+  travelCard: { unit: "CHF/year", note: "Second-class adult travel card (GA) for a year: 3,995 until 12 Dec 2026, 4,095 from 13 Dec 2026, as reported by Mobilityblog (4 Aug 2026) and Nume (26 Aug 2026) from the public-transport industry's announcement. The SBB page itself could not be opened, so this stays a placeholder. It is the ceiling for going without a car: a half-fare card with single tickets can cost less if you travel little." },
   wallbox: { unit: "CHF", note: "Wallbox and install, house or own garage." },
   sharedInstall: { unit: "CHF", note: "Share of an install in a shared garage." },
   batteryCheck: { unit: "CHF", note: "Battery-health check on a used car." },

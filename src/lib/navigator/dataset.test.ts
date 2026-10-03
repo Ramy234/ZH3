@@ -41,7 +41,7 @@ test("a dataset value moves the francs, bad rows are ignored, then it restores",
 });
 
 test("the seed migration matches model.ts", () => {
-  const sql = readFileSync(new URL("../../../migrations/0022_bev_dataset_v2026_10_03c.sql", import.meta.url), "utf8");
+  const sql = readFileSync(new URL("../../../migrations/0024_bev_dataset_v2026_10_03d.sql", import.meta.url), "utf8");
   assert.ok(sql.includes(`'${SEED_VERSION}'`));
   for (const r of seedRows()) assert.ok(sql.includes(`'${r.key}', ${r.value},`), `seed migration is stale for ${r.key}: run scripts/gen-dataset-seed.mjs`);
 });

@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { BatteryProgress, CostBars, PaybackRuler } from "@/components/navigator/viz";
 import { paybackWord, scenario as runScenario, sensitivity } from "@/lib/navigator/sensitivity";
+import { WithoutCard } from "@/components/navigator/without-card";
 import { ExploreTabs, Glossary, NextMove, WhatIf, type PanelDef } from "@/components/navigator/result-parts";
 import { BatteryAge, YearDays } from "@/components/navigator/idea-diagrams";
 import { featuresOf, rankActions } from "@/lib/navigator/actions";
@@ -1575,6 +1576,7 @@ function ResultView({
   const frame = result.answers.keepYears ?? 8;
   const [panel, setPanel] = useState<PanelDef["id"]>("whatif");
   const [picks, setPicks] = useState<Record<string, number>>({});
+  const [showWithout, setShowWithout] = useState(false);
   const [barNote, setBarNote] = useState<string | null>(null);
   const scen = useMemo(
     () => (sens ? runScenario(result, Object.fromEntries(Object.entries(picks).map(([k, v]) => [k, v / 4]))) : null),
@@ -1714,6 +1716,12 @@ function ResultView({
                 <span className="h-[3px] w-8 rounded-full bg-spruce" />
                 Switch
               </span>
+              {showWithout ? (
+                <span className="flex items-center gap-2">
+                  <span className="w-8 border-t-[3px] border-dotted border-amber-ink" />
+                  Without a car
+                </span>
+              ) : null}
               {scen ? (
                 <span className="flex items-center gap-2">
                   <span className="w-8 border-t-[3px] border-dotted border-[#7a9a1a]" />
@@ -1721,7 +1729,7 @@ function ResultView({
                 </span>
               ) : null}
             </div>
-            <CostChart data={result.series} ghost={scen?.series ?? null} />
+            <CostChart data={result.series} ghost={scen?.series ?? null} without={showWithout ? result.without.series : null} />
             <p className="mt-2 text-xs text-muted">How long would you keep the next car? The headline follows this. The payback year does not.</p>
             <div className="mt-1 flex gap-1.5">
               {([8, 12, 16, 24, 32] as const).map((years) => {
@@ -1764,31 +1772,19 @@ function ResultView({
               </button>
               <button
                 type="button"
-                aria-pressed={result.toggles.rightSize}
-                aria-disabled={result.answers.uses.includes("towing") || result.iceClass === "small"}
-                onClick={() => {
-                  if (!result.answers.uses.includes("towing") && result.iceClass !== "small") onFlip("rightSize");
-                }}
-                className={`min-w-0 flex-1 rounded-full border px-2 py-1.5 text-sm ${
-                  result.answers.uses.includes("towing") || result.iceClass === "small"
-                    ? "border-line bg-sheet text-muted"
-                    : result.toggles.rightSize
-                      ? "border-spruce bg-spruce text-spruce-ink"
-                      : "border-line bg-sheet"
-                }`}
+                aria-pressed={showWithout}
+                onClick={() => setShowWithout((on) => !on)}
+                className={`min-w-0 flex-1 rounded-full border px-2 py-1.5 text-sm ${showWithout ? "border-spruce bg-spruce text-spruce-ink" : "border-line bg-sheet"}`}
               >
-                One class down
+                No car
               </button>
             </div>
             <p className="mt-2 text-xs leading-relaxed text-muted">
-              {result.answers.uses.includes("towing")
-                ? "New or used, same class. One class down stays off: a few rental days do not replace towing."
-                : result.iceClass === "small"
-                  ? "New or used, same class. One class down stays off: a small city car has no class below it."
-                  : result.toggles.rightSize
-                  ? "One class down: a smaller car, and the rare days are rented. It can sit on new or used."
-                  : "New or used, same class. One class down is a smaller car. The rare days are rented."}
+              {result.toggles.rightSize
+                ? "New or used, same class. A smaller car with the rare days rented is already counted (the 2:1 idea). Change it under What if. Without a car adds a third line."
+                : "New or used, same class. Without a car adds a third line: a travel card and a few rented days."}
             </p>
+            {showWithout ? <WithoutCard result={result} /> : null}
             <a className="mt-2 inline-block text-sm font-medium text-spruce underline" href={SOURCES["tco-2023"].url} target="_blank" rel="noopener noreferrer">
               {SOURCES["tco-2023"].title}, {SOURCES["tco-2023"].published}
             </a>
@@ -3082,6 +3078,7 @@ function ToggleRow({
 }
 
 function SoFar({ result, step }: { result: Result; step: Step }) {
+  const [pick, setPick] = useState<"study" | "yours" | "far">("yours");
   const years = result.paybackYears;
   const ready = Boolean(result.answers.carClass && result.answers.fuel && result.answers.km);
   const width = !ready || years == null ? 0 : (Math.min(years, 32) / 32) * 100;
@@ -3101,40 +3098,73 @@ function SoFar({ result, step }: { result: Result; step: Step }) {
       </div>
     );
   }
+  const spot = !ready || years == null ? null : (Math.min(years, 32) / 32) * 100;
+  const checkpoints = [
+    { id: "study" as const, label: "Year 8", sub: "the study's window", at: 25 },
+    { id: "yours" as const, label: years == null ? "No year" : `Year ${Math.max(1, Math.ceil(years))}`, sub: "your car", at: spot },
+    { id: "far" as const, label: "Year 32", sub: "the far end", at: 100 },
+  ];
+  const sentence =
+    pick === "study"
+      ? "A federal cost study counted 8 years for a newly bought car. It is the window the headline uses. It is not a promise."
+      : pick === "far"
+        ? "The far end of this gauge. A payback beyond 32 years shows as past it."
+        : years == null
+          ? "No year. On these figures switching does not cost less to run, so nothing covers the extra price."
+          : years > 32
+            ? "Past 32 years on this picture. Past the study's window, you would need to keep the car longer than the study used. This is not money you receive."
+            : years > 8
+              ? "Past the study's window: you would need to keep the car longer than the study used. This is not money you receive."
+              : "Inside the study's window. This is not money you receive.";
   return (
-    <div className="border-t border-line bg-card px-5 py-3">
+    <div className="border-t border-line bg-card px-5 py-4">
       <div className="flex items-baseline justify-between gap-3">
         <div>
-          <p className="text-xs font-medium tracking-widest text-muted uppercase">
-            {ready ? "Years to cover the extra price" : "The year waits"}
-          </p>
-          <p className="font-serif mt-1 text-2xl tabular-nums leading-none">{ready ? paybackTitle(result) : "—"}</p>
+          <p className="text-xs font-medium tracking-widest text-muted uppercase">Years to cover the extra price</p>
+          <p className="font-serif mt-1 text-2xl tabular-nums leading-none">{paybackTitle(result)}</p>
         </div>
-        {ready ? (
-          <p className="max-w-48 text-right text-sm leading-snug text-muted">
-            {result.answers.km === "unsure"
-              ? `${chf(result.annualSwap)} a year. Distance is a typical figure, and it stays labelled.`
-              : `${chf(result.annualSwap)} a year if you switch.`}
-          </p>
-        ) : null}
+        <p className="max-w-48 text-right text-sm leading-snug text-muted">
+          {result.answers.km === "unsure"
+            ? `${chf(result.annualSwap)} a year. Distance is a typical figure, and it stays labelled.`
+            : `${chf(result.annualSwap)} a year if you switch.`}
+        </p>
       </div>
-      <div className="relative mt-3 h-1 rounded-full bg-line" aria-hidden>
-        <div className={`h-full rounded-full ${past && ready ? "bg-amber-ink" : "bg-spruce"}`} style={{ width: `${width}%` }} />
-        <span className="absolute top-1/2 h-3 w-px -translate-y-1/2 bg-ink" style={{ left: "25%" }} />
+      <div className="relative mt-4 h-2 rounded-full bg-line" aria-hidden>
+        <div
+          className={`h-full rounded-full motion-safe:transition-[width] motion-safe:duration-500 ${past ? "bg-amber-ink" : "bg-spruce"}`}
+          style={{ width: `${width}%` }}
+        />
+        {checkpoints.map((c) =>
+          c.at == null ? null : (
+            <span
+              key={c.id}
+              className={`absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 motion-safe:transition-[left] motion-safe:duration-500 ${
+                c.id === "yours" ? (past ? "border-amber-ink bg-amber-ink" : "border-spruce bg-spruce") : "border-ink bg-card"
+              } ${pick === c.id ? "ring-4 ring-spruce/20" : ""}`}
+              style={{ left: `${c.at}%` }}
+            />
+          ),
+        )}
       </div>
-      <div className="relative mt-1 h-4 text-xs text-muted" aria-hidden>
-        <span className="absolute left-0">Now</span>
-        <span className="absolute left-1/4 -translate-x-1/2">8 years</span>
-        <span className="absolute right-0">32</span>
+      <div className="mt-4 grid grid-cols-3 gap-2" role="group" aria-label="Three checkpoints on the way to the payback year">
+        {checkpoints.map((c) => {
+          const on = pick === c.id;
+          return (
+            <button
+              key={c.id}
+              type="button"
+              aria-pressed={on}
+              onClick={() => setPick(c.id)}
+              className={`min-h-14 rounded-2xl border px-2 py-2 text-left ${on ? "border-spruce bg-moss text-moss-ink" : "border-line bg-sheet"}`}
+            >
+              <span className="block text-sm font-medium tabular-nums">{c.label}</span>
+              <span className="block text-xs leading-tight text-muted">{c.sub}</span>
+            </button>
+          );
+        })}
       </div>
-      <p className="mt-2 text-sm leading-snug text-muted">
-        {ready
-          ? years == null
-            ? "No year. On these figures switching does not cost less to run, so nothing covers the extra price."
-            : years > 32
-            ? "Past 32 years on this picture. Past the mark, you would need to keep the car longer than the study used. This is not money you receive."
-            : "The mark is 8 years. Past it, you would need to keep the car longer than the study used. This is not money you receive."
-          : waiting}{" "}
+      <p className="mt-3 text-sm leading-snug text-muted" aria-live="polite">
+        {sentence}{" "}
         <a className="font-medium text-spruce underline" href={SOURCES["tco-2023"].url} target="_blank" rel="noopener noreferrer">
           {SOURCES["tco-2023"].title}, {SOURCES["tco-2023"].published}
         </a>

@@ -35,6 +35,10 @@ for (const width of [360, 390, 1280]) {
     await page.waitForTimeout(450);
     await check(i === taps.length - 1 ? "result" : `after tap ${i + 1}`);
   }
+  // The cost chart can show a third line (no car). Open it and the card under it.
+  await page.getByRole("button", { name: "No car", exact: true }).first().click();
+  await page.waitForTimeout(400);
+  await check("no-car line and card");
   // The result page has four panels, one open at a time. Walk all of them, then the sliders and the extra levers.
   for (const name of [/^My week$/, /^My place$/, /^Sources$/, /^What if$/]) {
     await page.getByRole("tab", { name }).first().click();

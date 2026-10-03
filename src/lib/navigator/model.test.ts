@@ -131,3 +131,17 @@ test("hybrid pays the petrol litre price", () => {
   assert.ok(hybrid.annualKeep < petrol.annualKeep, "lower consumption still makes it cheaper to run");
   assert.match(hybrid.parts[0].how, /1.83 francs a litre/);
 });
+
+test("going without a car: a travel card plus rented days, the car sold once, never the headline", () => {
+  const a = A({ barrier: "cost", carClass: "compact", fuel: "petrol", uses: ["everyday"], km: "mid", parking: "own", tripFreq: "rare" });
+  const r = evaluate(a, suggestToggles(a));
+  assert.equal(r.without.card, 4095);
+  assert.equal(r.without.days, 2);
+  assert.equal(r.without.annual, 4095 + 2 * 75);
+  assert.equal(r.without.series.length, r.series.length);
+  assert.equal(r.without.series[0], -r.without.creditBack);
+  assert.equal(r.without.series[3], r.without.annual * 3 - r.without.creditBack);
+  // It is an extra line: the keep and switch numbers do not depend on it.
+  assert.equal(r.series[3]!.keep, r.annualKeep * 3);
+  assert.equal(r.series[3]!.swap, r.cash + r.annualSwap * 3);
+});

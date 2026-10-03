@@ -97,6 +97,8 @@ export const RATES = {
   pv: 0.06,
   pvShare: 0.4,
   rentalDay: 75,
+  /** A second-class adult travel card (GA) for a year. The all-in ceiling for going without a car. */
+  travelCard: 4095,
   wallbox: 2200,
   sharedInstall: 1500,
   batteryCheck: 250,
@@ -206,9 +208,9 @@ export function pumpFor(fuel: Exclude<Fuel, "electric">): number {
   return fuel === "hybrid" ? PUMP.petrol : PUMP[fuel];
 }
 
-export const DATASET = "v-2026-10-03-0003";
+export const DATASET = "v-2026-10-03-0004";
 /** Bump when the arithmetic changes, so stored rows from before and after can be told apart. */
-export const MODEL = "2026-10-03-r4";
+export const MODEL = "2026-10-03-r5";
 
 export const SOURCES = {
   "tco-2023": {
@@ -760,6 +762,8 @@ export type Result = {
   paybackYears: number | null;
   withinHorizon: boolean;
   series: { year: number; keep: number; swap: number }[];
+  /** Going without a car: a travel card plus rented days for the rare trips, and the car sold once. Never the headline. */
+  without: { annual: number; card: number; days: number; rentalCost: number; creditBack: number; series: number[] };
   parts: { label: string; keep: number; swap: number; how: string; link?: { name: string; href: string } }[];
   verdict: string;
   headline: string;
@@ -861,6 +865,20 @@ export function evaluate(
     keep: annualKeep * year,
     swap: cash + annualSwap * year,
   }));
+
+  // Going without a car. The travel card is the ceiling for all public transport (a half-fare card with single tickets can cost
+  // less if you travel little). The rare days a car is needed are rented. The car you own is sold once, so the line starts below zero.
+  const withoutDays = rentalDays(a);
+  const withoutRental = withoutDays * RATES.rentalDay;
+  const withoutAnnual = Math.round(RATES.travelCard + withoutRental);
+  const without = {
+    annual: withoutAnnual,
+    card: RATES.travelCard,
+    days: withoutDays,
+    rentalCost: withoutRental,
+    creditBack: currentResale,
+    series: Array.from({ length: horizon + 1 }, (_, year) => withoutAnnual * year - currentResale),
+  };
 
   const keepIns = fuel === "electric" ? ice.bevIns : ice.iceIns;
   const keepUpkeep = fuel === "electric" ? ice.bevMaint : ice.iceMaint;
@@ -1107,6 +1125,7 @@ export function evaluate(
     paybackYears,
     withinHorizon,
     series,
+    without,
     parts,
     verdict,
     headline,
