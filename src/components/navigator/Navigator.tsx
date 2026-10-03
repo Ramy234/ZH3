@@ -1,10 +1,38 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, Check, ChevronDown, Download, RotateCcw } from "lucide-react";
+import {
+  ArrowLeft,
+  Ban,
+  Building2,
+  Car,
+  CarFront,
+  Check,
+  ChevronDown,
+  CircleHelp,
+  Download,
+  Fuel as FuelIcon,
+  Gauge,
+  House,
+  Leaf,
+  ParkingSquare,
+  PlugZap,
+  RotateCcw,
+  Route,
+  ShieldCheck,
+  Truck,
+  Wallet,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
+import { BatteryProgress, CostBars, PaybackRuler, Tornado } from "@/components/navigator/viz";
+import { paybackWord, sensitivity } from "@/lib/navigator/sensitivity";
 import { CostChart } from "@/components/navigator/CostChart";
 import { ClimateChart } from "@/components/navigator/ClimateChart";
 import { FACTS, FACT_VIEW, type Fact, type FactKey } from "@/lib/navigator/facts";
-import { applyDataset } from "@/lib/navigator/dataset";
+import { applyDataset, seedRows, type DatasetRow } from "@/lib/navigator/dataset";
+import { numberSheet, type SheetKind } from "@/lib/navigator/numbers";
+import { NumberSheetModal } from "@/components/navigator/numbers-ui";
 import { cleanActions, cleanCohort, cleanVia, type Action, type Via } from "@/lib/navigator/telemetry";
 import { classifyWords, wordsBoxOn } from "@/lib/navigator/words-server";
 import { ordinaryWeek } from "@/lib/navigator/week";
@@ -91,14 +119,14 @@ const BACK: Record<Step, Step | null> = {
 
 const KICKER: Record<Step, string> = {
   intro: "BEV Navigator",
-  barrier: "Ordinary week",
+  barrier: "An ordinary week",
   class: "Your car",
   fuel: "Fuel",
   uses: "What it is for",
   km: "Kilometres",
-  parking: "Where it sleeps",
+  parking: "Where you park",
   confirm: "Does this fit",
-  focus: "One more question",
+  focus: "One last question",
   result: "Your check",
 };
 
@@ -145,6 +173,7 @@ export function Navigator() {
   const loadFacts = useServerFn(listFacts);
   const fetchDataset = useServerFn(loadDataset);
   const [datasetVersion, setDatasetVersion] = useState<string | undefined>(undefined);
+  const [datasetRows, setDatasetRows] = useState<DatasetRow[]>(() => seedRows());
   const [cohort, setCohort] = useState<string | null>(null);
   const [actions, setActions] = useState<Action[]>([]);
   const [barrierVia, setBarrierVia] = useState<Via>("tap");
@@ -193,6 +222,7 @@ export function Navigator() {
       .then((d) => {
         applyDataset(d.rows);
         setDatasetVersion(d.version);
+        setDatasetRows(d.rows as DatasetRow[]);
       })
       .catch(() => undefined);
     void loadOfficial()
@@ -449,6 +479,7 @@ export function Navigator() {
   const firstScreen = useRef(true);
   useEffect(() => {
     scroller.current?.scrollTo({ top: 0 });
+    window.scrollTo({ top: 0 });
     // Keyboard and screen-reader users land on the new screen's title. Not on first load.
     if (firstScreen.current) {
       firstScreen.current = false;
@@ -506,8 +537,8 @@ export function Navigator() {
       <Single
         recap={recapFor("parking")}
         step={step}
-        title="Where does the car sleep?"
-        hint="The next screen shows a payback: years until the extra money to switch is covered by a lower cost to run. Until you correct the car, it uses a typical one."
+        title="Where do you park at night?"
+        hint="This decides whether you could charge at home. After four more taps you get a payback figure: the years until cheaper running covers the extra price of switching."
         options={PARKING}
         value={answers.parking}
         notes={[
@@ -527,7 +558,7 @@ export function Navigator() {
         recap={recapFor("class")}
         step={step}
         title="What do you drive now?"
-        hint="Class is enough. No number plate."
+        hint="The class is enough. No number plate needed."
         options={CLASSES}
         value={answers.carClass}
         onPick={(id) => patch({ carClass: id as CarClass }, "fuel")}
@@ -540,7 +571,7 @@ export function Navigator() {
         recap={recapFor("fuel")}
         step={step}
         title="What does it run on?"
-        hint="Already electric means the check looks at size and charging. It does not try to sell you a switch."
+        hint="If you already drive electric, the check looks at size and charging instead. It never tries to sell you anything."
         options={FUELS}
         value={answers.fuel}
         onPick={(id) => patch({ fuel: id as Fuel }, "km")}
@@ -553,8 +584,8 @@ export function Navigator() {
         recap={recapFor("km")}
         step={step}
         title="About how far in a year?"
-        hint="A band is safer than a precise number you do not have. If the service sticker shows last year’s kilometres, use that."
-        more="Most people miss the true year, some too high and some far too low. A wrong band moves the yearly fuel or power. It does not change the price of the car."
+        hint="A range is fine. If your last service sticker or invoice shows the kilometres, use that."
+        more="Most people guess their yearly distance a bit off. A wrong range changes the yearly fuel or electricity cost, but not the price of the car."
         options={KM_BANDS}
         value={answers.km}
         onPick={(id) => patch({ km: id as KmBand }, "focus")}
@@ -639,54 +670,111 @@ export function Navigator() {
         onAction={record}
         onPostcode={usePostcode}
         grain={homeGrain}
+        datasetRows={datasetRows}
+        datasetVersion={datasetVersion}
       />
     );
   }
 
+  const isResult = step === "result";
+  const answerLines = answerRecap(answers);
   return (
     <div className="min-h-dvh bg-bg text-ink">
+      <div className="hidden border-b border-line bg-sheet lg:block">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-8">
+          <p className="flex items-center gap-2 text-sm font-semibold">
+            <span className="grid h-6 w-6 place-items-center rounded-md bg-spruce text-volt">
+              <Zap className="h-3.5 w-3.5" aria-hidden />
+            </span>
+            BEV Navigator
+            <span className="font-normal text-muted">· A neutral check for Switzerland</span>
+          </p>
+          <p className="flex items-center gap-5 text-sm text-muted">
+            <span>No sign-in. Nothing typed. Keeping your car is a fair result.</span>
+            <Link to="/method" className="font-medium text-spruce underline underline-offset-2">
+              How it works
+            </Link>
+          </p>
+        </div>
+      </div>
       <div
-        className={`mx-auto grid min-h-dvh w-full max-w-5xl grid-cols-[minmax(0,1fr)] md:px-6 ${
-          showRail ? "md:w-fit md:grid-cols-[16rem_28rem] md:gap-10" : "md:w-[28rem]"
+        className={`mx-auto flex h-dvh w-full flex-col lg:h-auto lg:min-h-[calc(100dvh-3.5rem)] lg:flex-row lg:items-start lg:gap-10 lg:px-8 lg:py-8 ${
+          isResult ? "lg:max-w-6xl" : "lg:max-w-6xl"
         }`}
       >
-        <aside className={showRail ? "hidden md:flex md:flex-col md:justify-start md:pt-16" : "hidden"}>
-          <p className="text-xs font-medium tracking-widest text-spruce uppercase">n8n · five nodes</p>
-          <p className="font-serif mt-3 text-3xl leading-tight">The same path the workflow will run.</p>
-          <ol className="mt-6">
-            {NODES.map((node, i) => {
-              const on = i === railIndex(step, sentStage === "final");
-              return (
-                <li key={node.name} className="flex gap-3">
-                  <span className="flex flex-col items-center">
-                    <span
-                      className={`grid h-7 w-7 place-items-center rounded-full text-xs font-medium ${
-                        on ? "bg-spruce text-spruce-ink" : "border border-line bg-card text-muted"
-                      }`}
-                    >
-                      {i + 1}
-                    </span>
-                    {i < NODES.length - 1 ? <span className="mt-1 h-8 w-px bg-line" /> : null}
-                  </span>
-                  <span className="min-w-0 pb-4">
-                    <span className="block text-sm font-medium">
-                      {node.name}
-                      <span className="font-normal text-muted"> · {node.engine}</span>
-                    </span>
-                    <span className="mt-0.5 block text-sm leading-snug text-muted">{node.line}</span>
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
-        </aside>
-        <div className="relative flex h-dvh flex-col bg-sheet md:my-6 md:h-auto md:max-h-[calc(100dvh-3rem)] md:min-h-[calc(100dvh-3rem)] md:rounded-3xl md:border md:border-line">
-          <div ref={scroller} className="safe-pad flex min-h-0 flex-1 flex-col overflow-y-auto">
+        {isResult ? null : (
+          <aside className="hidden lg:sticky lg:top-8 lg:block lg:w-80 lg:shrink-0">
+            <div className="rounded-3xl bg-spruce p-6 text-spruce-ink">
+              <p className="text-xs font-medium tracking-widest text-volt uppercase">Your ordinary week</p>
+              <p className="font-serif mt-3 text-2xl leading-tight">Would an electric car already work for you?</p>
+              <div className="mt-5">
+                <BatteryProgress
+                  tone="dark"
+                  filled={Math.max(0, FLOW.indexOf(step) + 1)}
+                  total={FLOW.length}
+                  label={`Question ${Math.max(1, FLOW.indexOf(step) + 1)} of ${FLOW.length}`}
+                />
+                <p className="mt-2 text-xs text-spruce-ink/70">
+                  Question {Math.max(1, FLOW.indexOf(step) + 1)} of {FLOW.length}. About a minute.
+                </p>
+              </div>
+              {answerLines.length > 0 ? (
+                <dl className="mt-5 space-y-2.5 border-t border-white/15 pt-4">
+                  {answerLines.map((row) => (
+                    <div key={row.step}>
+                      <dt className="text-[11px] tracking-widest text-spruce-ink/60 uppercase">{row.kicker}</dt>
+                      <dd className="text-sm leading-snug">
+                        <button type="button" onClick={() => setStep(row.step)} className="min-h-6 text-left underline decoration-white/30 underline-offset-2 hover:decoration-volt">
+                          {row.label}
+                        </button>
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : (
+                <p className="mt-5 border-t border-white/15 pt-4 text-sm leading-relaxed text-spruce-ink/80">
+                  Tap what fits. Your answers appear here, and you can change any of them.
+                </p>
+              )}
+            </div>
+            {soFar ? <div className="mt-4 overflow-hidden rounded-2xl border border-line">{soFar}</div> : null}
+            {showRail ? (
+              <div className="mt-4 rounded-2xl border border-line bg-card p-4">
+                <p className="text-xs font-medium tracking-widest text-spruce uppercase">n8n · five nodes</p>
+                <ol className="mt-3">
+                  {NODES.map((node, i) => {
+                    const on = i === railIndex(step, sentStage === "final");
+                    return (
+                      <li key={node.name} className="flex gap-3">
+                        <span className="flex flex-col items-center">
+                          <span className={`grid h-6 w-6 place-items-center rounded-full text-xs font-medium ${on ? "bg-spruce text-spruce-ink" : "border border-line bg-card text-muted"}`}>
+                            {i + 1}
+                          </span>
+                          {i < NODES.length - 1 ? <span className="mt-1 h-6 w-px bg-line" /> : null}
+                        </span>
+                        <span className="min-w-0 pb-3 text-sm">
+                          <span className="block font-medium">{node.name} <span className="font-normal text-muted">· {node.engine}</span></span>
+                          <span className="block leading-snug text-muted">{node.line}</span>
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
+            ) : null}
+          </aside>
+        )}
+        <div
+          className={`relative flex min-h-0 w-full flex-1 flex-col bg-sheet lg:flex-none ${
+            isResult ? "lg:bg-transparent" : "lg:min-w-0 lg:max-w-3xl lg:rounded-3xl lg:border lg:border-line"
+          }`}
+        >
+          <div ref={scroller} className="safe-pad flex min-h-0 flex-1 flex-col overflow-y-auto lg:overflow-visible lg:pb-6">
             <div key={step} className="step-in flex flex-1 flex-col">
               {body}
             </div>
           </div>
-          {soFar}
+          {soFar ? <div className="lg:hidden">{soFar}</div> : null}
           {sheet ? (
             <FactSheet
               factKey={sheet}
@@ -704,6 +792,18 @@ export function Navigator() {
   );
 }
 
+const RECAP_KICKER: Record<string, string> = { barrier: "What would stop you", parking: "Where you park", class: "Your car", fuel: "Fuel", km: "Distance" };
+function answerRecap(a: Answers): { step: Step; kicker: string; label: string }[] {
+  const rows: { step: Step; label: string | null }[] = [
+    { step: "barrier", label: a.barrier ? labelBarrier(a.barrier) : null },
+    { step: "parking", label: a.parking ? (PARKING.find((o) => o.id === a.parking)?.title ?? null) : null },
+    { step: "class", label: a.carClass ? labelClass(a.carClass) : null },
+    { step: "fuel", label: a.fuel ? labelFuel(a.fuel) : null },
+    { step: "km", label: a.km ? (KM_BANDS.find((o) => o.id === a.km)?.title ?? null) : null },
+  ];
+  return rows.filter((r): r is { step: Step; label: string } => r.label != null).map((r) => ({ step: r.step, kicker: RECAP_KICKER[r.step]!, label: r.label }));
+}
+
 function answersReady(a: Answers): boolean {
   const focus = focusKind(a);
   if (focus === "work") return a.workAccess != null;
@@ -716,17 +816,19 @@ function Header({
   step,
   onBack,
   planSent = false,
+  flush = false,
 }: {
   step: Step;
   onBack?: () => void;
   planSent?: boolean;
+  flush?: boolean;
 }) {
   const index = FLOW.indexOf(step);
   // One segment per question. The result fills the whole bar. The five-node rail stays on the desktop side panel only.
   const filled = step === "result" ? FLOW.length : index + 1;
   void planSent;
   return (
-    <header className="sticky top-0 z-10 bg-sheet px-5 pt-4 pb-3">
+    <header className={`sticky top-0 z-10 rounded-t-3xl bg-sheet px-5 pt-4 pb-3 lg:static lg:pt-6 ${flush ? "lg:bg-transparent lg:px-0 lg:pt-0" : "lg:px-8"}`}>
       <div className="flex items-center gap-3">
         {onBack ? (
           <button
@@ -738,20 +840,16 @@ function Header({
             <ArrowLeft className="h-5 w-5" />
           </button>
         ) : (
-          <span className="w-11 shrink-0" />
+          <span className="w-11 shrink-0 lg:hidden" />
         )}
         <div className="min-w-0 flex-1">
           <p className="text-xs font-medium tracking-widest text-muted uppercase">
             {KICKER[step]}
             {index >= 0 ? ` · ${index + 1} of ${FLOW.length}` : ""}
           </p>
-          <ol className="mt-2 flex gap-1" aria-label={`Step ${Math.min(filled, FLOW.length)} of ${FLOW.length}`}>
-            {FLOW.map((name, i) => (
-              <li key={name} className="min-w-0 flex-1" aria-current={i === filled - 1 ? "step" : undefined}>
-                <span className={`block h-1 rounded-full ${i < filled ? "bg-spruce" : "bg-line"}`} />
-              </li>
-            ))}
-          </ol>
+          <div className="mt-2 lg:hidden">
+            <BatteryProgress filled={filled} total={FLOW.length} label={`Step ${Math.min(filled, FLOW.length)} of ${FLOW.length}`} />
+          </div>
         </div>
       </div>
     </header>
@@ -781,14 +879,14 @@ function BarrierStep({
   return (
     <div className="flex flex-1 flex-col">
       <Header step="barrier" />
-      <div className="flex flex-1 flex-col px-5 pt-2 pb-6">
-        <h1 className="font-serif text-[1.7rem] leading-tight">Would an electric car already work for an ordinary week?</h1>
+      <div className="flex flex-1 flex-col px-5 pt-2 pb-6 lg:px-8">
+        <h1 className="font-serif text-[1.7rem] leading-tight lg:text-4xl">Would an electric car already work for an ordinary week?</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted">
-          Tap what would still stop you. Six taps, about a minute, nothing typed. Keeping your car is a fair ending.
+          Tap what would still hold you back. Six taps, about a minute, nothing to type. Keeping your car is a perfectly fair result.
         </p>
         <div className="mt-4 flex flex-col gap-2">
           {BARRIERS.map((opt) => (
-            <Choice key={opt.id} title={opt.title} detail={opt.detail} selected={value === opt.id} onClick={() => onPick(opt.id)} />
+            <Choice key={opt.id} icon={opt.id} title={opt.title} detail={opt.detail} selected={value === opt.id} onClick={() => onPick(opt.id)} />
           ))}
         </div>
         {wordsBox}
@@ -893,7 +991,7 @@ const LEVER_PHRASE: Record<LeverKey, string> = {
   used: "a used car with a checked battery",
   rightSize: "one class down, with the rare days rented",
   work: "charging at work",
-  home: "charging where the car sleeps",
+  home: "charging where you park",
   publicPlan: "a public charging plan",
   tariff: "a cheaper home tariff",
   pv: "solar on the roof",
@@ -1051,7 +1149,7 @@ type RecapItem = { label: string; step: Step };
 function Recap({ items, onJump }: { items: RecapItem[]; onJump: (step: Step) => void }) {
   if (items.length === 0) return null;
   return (
-    <nav aria-label="Your answers so far" data-hscroll className="-mx-5 mb-3 overflow-x-auto px-5">
+    <nav aria-label="Your answers so far" data-hscroll className="-mx-5 mb-3 overflow-x-auto px-5 lg:hidden">
       <ul className="flex w-max gap-1.5 pr-5">
         {items.map((item) => (
           <li key={item.step}>
@@ -1102,9 +1200,9 @@ function Single({
   return (
     <div className="flex flex-1 flex-col">
       <Header step={step} onBack={onBack} />
-      <div className="flex flex-1 flex-col px-5 pt-1 pb-6">
+      <div className="flex flex-1 flex-col px-5 pt-1 pb-6 lg:px-8">
         {recap}
-        <h1 className="font-serif text-3xl leading-tight">{title}</h1>
+        <h1 className="font-serif text-3xl leading-tight lg:text-4xl">{title}</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted">{hint}</p>
         {more ? (
           <details className="mt-1 text-sm text-muted">
@@ -1117,7 +1215,7 @@ function Single({
             const matched = notes?.filter((n) => n.optionId === opt.id) ?? [];
             return (
               <div key={opt.id}>
-                <Choice title={opt.title} detail={opt.detail} selected={value === opt.id} onClick={() => onPick(opt.id)} />
+                <Choice icon={step === "km" && opt.id === "mid" ? "mid_km" : step === "km" || step === "class" || step === "fuel" || step === "parking" ? opt.id : undefined} title={opt.title} detail={opt.detail} selected={value === opt.id} onClick={() => onPick(opt.id)} />
                 {matched.map((note) =>
                   onFact ? <NoteButton key={note.fact} label={note.label} onClick={() => onFact(note.fact)} /> : null,
                 )}
@@ -1130,30 +1228,68 @@ function Single({
   );
 }
 
+const CHOICE_ICON: Record<string, LucideIcon> = {
+  // barriers
+  charging: PlugZap,
+  cost: Wallet,
+  trips: Route,
+  trust: ShieldCheck,
+  // parking
+  house: House,
+  own: ParkingSquare,
+  shared: Building2,
+  none: Ban,
+  // car class
+  small: Car,
+  compact: CarFront,
+  mid: CarFront,
+  suv: Truck,
+  van: Truck,
+  // fuel
+  petrol: FuelIcon,
+  diesel: FuelIcon,
+  hybrid: Leaf,
+  electric: Zap,
+  // distance
+  lt10: Gauge,
+  mid_km: Gauge,
+  gt20: Gauge,
+  unsure: CircleHelp,
+};
+
 function Choice({
   title,
   detail,
   selected,
   onClick,
+  icon,
 }: {
   title: string;
   detail?: string;
   selected: boolean;
   onClick: () => void;
+  icon?: string;
 }) {
+  const Icon = icon ? CHOICE_ICON[icon] : undefined;
   return (
     <button
       type="button"
       aria-pressed={selected}
       onClick={onClick}
-      className={`min-h-14 w-full rounded-2xl border px-4 py-3 text-left transition-colors duration-200 ${
-        selected ? "border-spruce bg-spruce text-spruce-ink" : "border-line bg-card text-ink"
+      className={`group flex min-h-14 w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-[background-color,border-color,transform] duration-200 active:scale-[0.99] ${
+        selected ? "border-spruce bg-spruce text-spruce-ink" : "border-line bg-card text-ink hover:border-spruce/50"
       }`}
     >
-      <span className="block text-base font-medium">{title}</span>
-      {detail ? (
-        <span className={`mt-0.5 block text-sm leading-snug ${selected ? "text-spruce-ink" : "text-muted"}`}>{detail}</span>
+      {Icon ? (
+        <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${selected ? "bg-volt text-spruce" : "bg-moss text-moss-ink"}`}>
+          <Icon className="h-5 w-5" aria-hidden />
+        </span>
       ) : null}
+      <span className="min-w-0 flex-1">
+        <span className="block text-base font-medium">{title}</span>
+        {detail ? <span className={`mt-0.5 block text-sm leading-snug ${selected ? "text-spruce-ink/85" : "text-muted"}`}>{detail}</span> : null}
+      </span>
+      {selected ? <Check className="h-5 w-5 shrink-0 text-volt" aria-hidden /> : null}
     </button>
   );
 }
@@ -1187,9 +1323,9 @@ function Focus({
   return (
     <div className="flex flex-1 flex-col">
       <Header step="focus" onBack={onBack} />
-      <div className="flex flex-1 flex-col px-5 pt-1 pb-6">
+      <div className="flex flex-1 flex-col px-5 pt-1 pb-6 lg:px-8">
         {recap}
-        <h1 className="font-serif text-3xl leading-tight">{spec.title}</h1>
+        <h1 className="font-serif text-3xl leading-tight lg:text-4xl">{spec.title}</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted">{spec.hint}</p>
         {note ? <NoteButton label="Read the short note" onClick={() => onFact(note)} /> : null}
         <div className="mt-5 flex flex-col gap-2">
@@ -1204,7 +1340,7 @@ function Focus({
           type="button"
           disabled={!ready}
           onClick={onContinue}
-          className="mt-6 h-12 rounded-full bg-spruce font-medium text-spruce-ink disabled:opacity-40"
+          className="mt-6 h-12 rounded-full bg-spruce font-medium text-spruce-ink disabled:opacity-40 lg:self-start lg:px-10"
         >
           See the numbers
         </button>
@@ -1220,12 +1356,12 @@ function focusSpec(kind: ReturnType<typeof focusKind>, answers: Answers) {
   if (kind === "work") {
     const options: { id: WorkAccess; title: string; detail: string; patch: Partial<Answers> }[] = [
       { id: "yes", title: "Yes, I can charge at work", detail: "A normal week, not a one-off favour.", patch: { workAccess: "yes" } },
-      { id: "ask", title: "I can ask", detail: "It is not a no until someone has said no.", patch: { workAccess: "ask" } },
-      { id: "no", title: "No", detail: "Then home or the public network has to carry the week.", patch: { workAccess: "no" } },
+      { id: "ask", title: "I can ask", detail: "Worth asking before you rule it out.", patch: { workAccess: "ask" } },
+      { id: "no", title: "No", detail: "Then home charging or public charging has to cover the week.", patch: { workAccess: "no" } },
     ];
     return {
       title: "Could the car charge at work?",
-      hint: "For a lot of people this covers more kilometres than a wallbox that does not exist yet.",
+      hint: "For many people, charging at work covers more kilometres than a home wallbox they do not have yet.",
       options,
       value: answers.workAccess,
     };
@@ -1233,13 +1369,13 @@ function focusSpec(kind: ReturnType<typeof focusKind>, answers: Answers) {
   if (kind === "trips") {
     if (answers.uses.includes("towing")) {
       return {
-        title: "Towing stays in the case.",
-        hint: "A smaller car will not be offered as a substitute. The prices respect that.",
+        title: "You tow, so the size stays.",
+        hint: "Towing stays in the picture, so a smaller car is not suggested as a replacement.",
         options: [
           {
             id: "often" as TripFreq,
-            title: "Understood — keep this class",
-            detail: "You can still see what charging does to the year cost.",
+            title: "Got it, keep this size",
+            detail: "You can still see what charging does to your yearly cost.",
             patch: { tripFreq: "often" as TripFreq },
           },
         ],
@@ -1248,37 +1384,37 @@ function focusSpec(kind: ReturnType<typeof focusKind>, answers: Answers) {
     }
     const options: { id: TripFreq; title: string; detail: string; patch: Partial<Answers> }[] = [
       { id: "rare", title: "Rarely", detail: "Less than once a year.", patch: { tripFreq: "rare" } },
-      { id: "yearly", title: "About once a year", detail: "The holiday, not the Tuesday.", patch: { tripFreq: "yearly" } },
+      { id: "yearly", title: "About once a year", detail: "A holiday trip, not the daily run.", patch: { tripFreq: "yearly" } },
       { id: "often", title: "Several times a year", detail: "Then a larger battery can be a real need.", patch: { tripFreq: "often" } },
     ];
     return {
       title: "How often is the long trip?",
-      hint: "The trip you worry about often weighs more than the kilometres you actually drive.",
+      hint: "The one long trip you worry about often weighs more than the kilometres you drive every week.",
       options,
       value: answers.tripFreq,
     };
   }
   if (kind === "trust") {
     const options: { id: UsedStance; title: string; detail: string; patch: Partial<Answers> }[] = [
-      { id: "yes", title: "Yes, if the battery is certified", detail: "A written health check, not a seller’s word.", patch: { usedStance: "yes" } },
-      { id: "new", title: "Only if it is new", detail: "You pay to avoid the unknown.", patch: { usedStance: "new" } },
-      { id: "no", title: "I do not want a used electric car", detail: "Then the cash figure stays high. That is allowed.", patch: { usedStance: "no" } },
+      { id: "yes", title: "Yes, if the battery is certified", detail: "With a written battery health check, not just the seller’s word.", patch: { usedStance: "yes" } },
+      { id: "new", title: "Only if it is new", detail: "You pay more to avoid the unknown.", patch: { usedStance: "new" } },
+      { id: "no", title: "I do not want a used electric car", detail: "Then the upfront cost stays high. That is a fair choice.", patch: { usedStance: "no" } },
     ];
     return {
       title: "Would a used car be acceptable?",
-      hint: "This is the difference between a rumour and a number.",
+      hint: "A battery check turns a rumour into a number you can judge.",
       options,
       value: answers.usedStance,
     };
   }
   const options: { id: CostSting; title: string; detail: string; patch: Partial<Answers> }[] = [
-    { id: "price", title: "The purchase price", detail: "Writing the cheque, or the value falling after.", patch: { costSting: "price" } },
+    { id: "price", title: "The purchase price", detail: "Paying for the car, or watching its value fall.", patch: { costSting: "price" } },
     { id: "month", title: "What it costs each month", detail: "Fuel, power, insurance, tax, tyres.", patch: { costSting: "month" } },
-    { id: "both", title: "Both", detail: "Honest. They pull in different directions.", patch: { costSting: "both" } },
+    { id: "both", title: "Both", detail: "Fair enough. They pull in different directions.", patch: { costSting: "both" } },
   ];
   return {
-    title: "What stings more?",
-    hint: "The purchase price starts the case with a used car. The other two change the wording, not the francs. Every switch stays yours.",
+    title: "What bothers you more about the cost?",
+    hint: "If the purchase price bothers you, we start with a used car. The other answers only change the wording, not the francs. You can change every setting later.",
     options,
     value: answers.costSting,
   };
@@ -1312,7 +1448,11 @@ function ResultView({
   onAction,
   onPostcode,
   grain,
+  datasetRows,
+  datasetVersion,
 }: {
+  datasetRows: DatasetRow[];
+  datasetVersion: string | undefined;
   onAction: (action: Action) => void;
   result: Result;
   sample: boolean;
@@ -1342,6 +1482,9 @@ function ResultView({
   grain: "municipality" | null;
 }) {
   const [climateOpen, setClimateOpen] = useState(false);
+  const sens = useMemo(() => sensitivity(result), [result]);
+  const [sheetKind, setSheetKind] = useState<SheetKind | null>(null);
+  const frame = result.answers.keepYears ?? 8;
   // Two closed folds hold the reasoning and the evidence. The decision, the next steps and the levers stay on the page.
   const [folds, setFolds] = useState({ why: false, evidence: false });
   const [barNote, setBarNote] = useState<string | null>(null);
@@ -1367,49 +1510,82 @@ function ResultView({
 
   return (
     <div className="flex flex-1 flex-col">
-      <Header step="result" onBack={onBack} planSent={sent === "saved"} />
-      <div className="flex flex-col gap-4 px-5 pt-2 pb-8">
-        {sample ? (
-          <div className="rounded-2xl bg-moss px-4 py-3 text-sm leading-relaxed text-moss-ink">
-            Sample case: compact diesel, about 14,000 km, shared garage, able to ask at work. Not your life.
-            <button type="button" onClick={onSampleOff} className="mt-2 block font-medium underline">
-              Start with mine
+      <div className="lg:mb-2">
+        <Header step="result" onBack={onBack} planSent={sent === "saved"} flush />
+      </div>
+      <div className="flex flex-col gap-4 px-5 pt-2 pb-8 lg:grid lg:grid-cols-[minmax(0,25rem)_minmax(0,1fr)] lg:items-start lg:gap-8 lg:px-0 lg:pt-0">
+        <div className="flex flex-col gap-4">
+          {sample ? (
+            <div className="rounded-2xl bg-moss px-4 py-3 text-sm leading-relaxed text-moss-ink">
+              Sample case: compact diesel, about 14,000 km, shared garage, able to ask at work. Not your life.
+              <button type="button" onClick={onSampleOff} className="mt-2 block min-h-11 font-medium underline">
+                Start with mine
+              </button>
+            </div>
+          ) : null}
+          <section className="rounded-3xl bg-spruce p-5 text-spruce-ink lg:p-6" aria-labelledby="result-title">
+            <p className="text-xs font-medium tracking-widest text-volt uppercase">Your check</p>
+            <h1 id="result-title" className="font-serif mt-2 text-3xl leading-tight lg:text-[2rem]">
+              {result.headline}
+            </h1>
+            <div className="mt-3 flex flex-col gap-2 lg:gap-1.5">
+              {result.verdict.split("\n").map((line) => {
+                const cut = line.indexOf(". ");
+                const lead = cut === -1 ? line : line.slice(0, cut + 1);
+                const rest = cut === -1 ? "" : line.slice(cut + 2);
+                return (
+                  <p key={line} className="text-base leading-snug tabular-nums lg:text-[15px]">
+                    <span className="font-medium">{lead}</span>
+                    {rest ? <span className="block text-sm leading-snug text-spruce-ink/75 lg:text-[13px]">{rest}</span> : null}
+                  </p>
+                );
+              })}
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setSheetKind("keep")} className="rounded-2xl bg-white/10 p-3 text-left transition-colors hover:bg-white/15">
+                <p className="text-xs font-medium tracking-widest text-spruce-ink/70 uppercase">Keep it</p>
+                <p className="font-serif mt-2 text-2xl tabular-nums leading-none text-volt">{chf(result.annualKeep)}</p>
+                <p className="mt-1 text-sm text-spruce-ink/75">a year to run</p>
+                <p className="mt-2 text-xs font-medium text-volt underline underline-offset-2">How it is made</p>
+              </button>
+              <button type="button" onClick={() => setSheetKind("switch")} className="rounded-2xl bg-white/10 p-3 text-left transition-colors hover:bg-white/15">
+                <p className="text-xs font-medium tracking-widest text-spruce-ink/70 uppercase">Switch</p>
+                <p className="font-serif mt-2 text-2xl tabular-nums leading-none text-volt">{chf(result.annualSwap)}</p>
+                <p className="mt-1 text-sm text-spruce-ink/75">a year to run</p>
+                <p className="mt-2 text-xs font-medium text-volt underline underline-offset-2">How it is made</p>
+              </button>
+            </div>
+            <button type="button" onClick={() => setSheetKind("cash")} className="mt-2 flex min-h-11 w-full items-center justify-between rounded-2xl bg-white/10 px-3 py-2 text-left text-sm transition-colors hover:bg-white/15">
+              <span>
+                <span className="font-medium tabular-nums">{chf(result.cash)}</span> extra at the start
+              </span>
+              <span className="text-xs font-medium text-volt underline underline-offset-2">How it is made</span>
             </button>
-          </div>
-        ) : null}
-
+            {sens ? (
+              <div className="mt-5 border-t border-white/15 pt-4">
+                <p className="text-xs font-medium tracking-widest text-spruce-ink/70 uppercase">When the savings cover the extra price</p>
+                <div className="mt-3">
+                  <PaybackRuler base={sens.base} best={sens.best} worst={sens.worst} frame={frame} tone="dark" />
+                </div>
+                <div className="mt-1 flex flex-wrap gap-x-5">
+                  <button type="button" onClick={() => setSheetKind("payback")} className="min-h-11 py-2 text-sm font-medium text-volt underline underline-offset-2">
+                    How the year is worked out
+                  </button>
+                  <a href="#how-sure" className="inline-block min-h-11 py-2 text-sm font-medium text-volt underline underline-offset-2">
+                    How sure is this?
+                  </a>
+                </div>
+              </div>
+            ) : null}
+            {sample ? null : (
+              <p className="mt-2 text-xs leading-relaxed text-spruce-ink/60">Opening this page saves an anonymous record. No name, no address.</p>
+            )}
+          </section>
+        </div>
+        <div className="flex flex-col gap-4">
         <div>
-          <h1 className="font-serif text-3xl leading-tight">{result.headline}</h1>
-          <div className="mt-3 flex flex-col gap-2.5">
-            {result.verdict.split("\n").map((line) => {
-              const cut = line.indexOf(". ");
-              const lead = cut === -1 ? line : line.slice(0, cut + 1);
-              const rest = cut === -1 ? "" : line.slice(cut + 2);
-              return (
-                <p key={line} className="text-base leading-snug tabular-nums">
-                  <span className="font-medium">{lead}</span>
-                  {rest ? <span className="block text-sm leading-snug text-muted">{rest}</span> : null}
-                </p>
-              );
-            })}
-          </div>
-          {sample ? null : (
-            <p className="mt-3 text-sm leading-relaxed text-muted">Opening this page stores an anonymous session. No name, and no postcode.</p>
-          )}
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <div className="rounded-2xl border border-line bg-card p-3">
-              <p className="text-xs font-medium tracking-widest text-muted uppercase">Keep it</p>
-              <p className="font-serif mt-2 text-2xl tabular-nums leading-none">{chf(result.annualKeep)}</p>
-              <p className="mt-1 text-sm text-muted">a year, on these figures</p>
-            </div>
-            <div className="rounded-2xl border border-line bg-card p-3">
-              <p className="text-xs font-medium tracking-widest text-muted uppercase">Switch</p>
-              <p className="font-serif mt-2 text-2xl tabular-nums leading-none">{chf(result.annualSwap)}</p>
-              <p className="mt-1 text-sm text-muted">a year, plus {chf(result.cash)} at the start</p>
-            </div>
-          </div>
-          <div className="mt-3 rounded-2xl border border-line bg-card p-3">
-            <p className="text-xs text-muted">Left is thousand francs. Along the bottom, the year.</p>
+          <div className="rounded-2xl border border-line bg-card p-3 lg:p-5">
+            <p className="text-xs text-muted">Total cost in thousand francs (left), year by year (bottom).</p>
             <div className="mt-2 flex gap-5 text-sm text-ink">
               <span className="flex items-center gap-2">
                 <span className="w-8 border-t-2 border-dashed border-ink" />
@@ -1421,7 +1597,7 @@ function ResultView({
               </span>
             </div>
             <CostChart data={result.series} />
-            <p className="mt-2 text-xs text-muted">How long you would keep the next car. The title follows this. The payback year does not.</p>
+            <p className="mt-2 text-xs text-muted">How long would you keep the next car? The headline follows this. The payback year does not.</p>
             <div className="mt-1 flex gap-1.5">
               {([8, 12, 16, 24, 32] as const).map((years) => {
                 const on = (result.answers.keepYears ?? 8) === years;
@@ -1514,13 +1690,39 @@ function ResultView({
         <OrdinaryWeek result={result} />
 
         <section className="rounded-2xl border border-line bg-card p-4">
-          <h2 className="font-medium">What is still open</h2>
+          <h2 className="font-medium">What is still holding you back</h2>
           <p className="mt-2 text-sm leading-relaxed">
-            You named “{labelBarrier(result.answers.barrier ?? "unsure")}”.{" "}
+            You said: “{labelBarrier(result.answers.barrier ?? "unsure")}”.{" "}
             {result.steps[0]
               ? `${result.steps[0].title}. ${result.steps[0].detail}`
-              : "Nothing further is priced until a switch or a figure above changes."}
+              : "Nothing more is priced until you change a setting or a figure."}
           </p>
+        </section>
+
+        {sens ? (
+          <section id="how-sure" className="rounded-2xl border border-line bg-card p-4 lg:p-5">
+            <h2 className="font-medium">How sure is this?</h2>
+            <p className="mt-1 text-sm leading-relaxed text-muted">
+              Most of these figures are assumptions, not quotes. Here each one is moved on its own and the same sum is run again. Each bar runs from the fast end to the slow end. The black tick is your result above.
+            </p>
+            <div className="mt-4">
+              <Tornado drivers={sens.drivers} base={sens.base} frame={frame} worst={sens.worst} />
+            </div>
+            <p className="mt-4 text-sm leading-relaxed">
+              Moved together, the fast case reaches <span className="font-medium">{paybackWord(sens.best)}</span> and the slow case <span className="font-medium">{paybackWord(sens.worst)}</span>. Your result is <span className="font-medium">{paybackWord(sens.base)}</span>.
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-muted">
+              This is a range, not a forecast, and it carries no probability. The steps are our choice, not a measured spread. One assumption moves at a time, so combined effects show only in the fast and slow cases. Taxes, grants and winter are not in it.
+            </p>
+          </section>
+        ) : null}
+
+        <section className="rounded-2xl border border-line bg-card p-4 lg:p-5">
+          <h2 className="font-medium">Where a year of running goes</h2>
+          <p className="mt-1 text-sm leading-relaxed text-muted">Francs a year, line by line. The purchase price and the extra cash at the start are not in these bars.</p>
+          <div className="mt-4">
+            <CostBars parts={result.parts} />
+          </div>
         </section>
 
         <WhatWouldHaveToBeTrue
@@ -1566,9 +1768,9 @@ function ResultView({
         </section>
 
         <section id="levers">
-          <h2 className="font-medium">See what changes the number</h2>
+          <h2 className="font-medium">Try a change</h2>
           <p className="mt-1 text-sm leading-relaxed text-muted">
-            Each switch recalculates immediately. A page is shown only when it matches this case. The prices are placeholders, not a quote and not an offer.
+            Each switch recalculates at once. The prices are rough class figures, not a quote and not an offer.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {(
@@ -1705,13 +1907,13 @@ function ResultView({
           </p>
           <div className="mt-3 flex flex-col gap-2">
             <button type="button" onClick={() => onFact("tenant-right")} className="min-h-12 rounded-2xl border border-line bg-card px-4 text-left text-sm font-medium">
-              The building will say no
+              The building might say no
             </button>
             <button type="button" onClick={() => onFact("winter")} className="min-h-12 rounded-2xl border border-line bg-card px-4 text-left text-sm font-medium">
-              Winter, and the trip that is not a Tuesday
+              Winter, and the long trip
             </button>
             <button type="button" onClick={() => onFact("not-for-me")} className="min-h-12 rounded-2xl border border-line bg-card px-4 text-left text-sm font-medium">
-              I just do not want one
+              I simply do not want one
             </button>
           </div>
         </section>
@@ -1828,15 +2030,15 @@ function ResultView({
         <section>
           <h2 className="font-medium">Did something not make sense?</h2>
           <p className="mt-1 text-sm leading-relaxed text-muted">
-            Tap one. It is stored with the anonymous session. There is no message box and no reply.
+            Tap one. It is saved with your anonymous record. There is no message box and no reply.
           </p>
           <div className="mt-3 flex flex-col gap-2">
             {(
               [
-                ["km", "The kilometres were a guess"],
-                ["payback", "I do not understand payback"],
+                ["km", "The distance was a guess"],
+                ["payback", "I do not understand the payback"],
                 ["price", "A price here looks wrong"],
-                ["wording", "A sentence was unclear"],
+                ["wording", "Something was unclear"],
               ] as const
             ).map(([id, label]) => (
               <button
@@ -1866,6 +2068,11 @@ function ResultView({
           ) : null}
         </section>
 
+        <p className="text-sm">
+          <Link to="/method" className="inline-block min-h-11 py-3 font-medium text-spruce underline">
+            How the check works, every figure and what it leaves out
+          </Link>
+        </p>
         <p className="text-xs leading-relaxed text-muted">
           Indicative only. Not financial, insurance, tax, or purchase advice. Electricity, vehicle prices, tax, and rental days are labelled placeholders, not live Swiss tariffs or a dealer offer. The climate line is a published comparison of two new cars. It is not calculated for this case, and it does not change the payback. Winter range and data-security comparisons are not calculated here.
         </p>
@@ -1874,7 +2081,9 @@ function ResultView({
           <RotateCcw className="h-4 w-4" />
           Start again
         </button>
+        </div>
       </div>
+      {sheetKind ? <NumberSheetModal sheet={numberSheet(sheetKind, result, datasetRows)} version={datasetVersion} onClose={() => setSheetKind(null)} /> : null}
       <ActionBar
         note={barNote}
         onShare={() => {
@@ -2340,7 +2549,7 @@ function ShareNote({ result, onAction }: { result: Result; onAction: (action: Ac
     <section>
       <h2 className="font-medium">Ask someone else</h2>
       <p className="mt-1 text-sm leading-relaxed text-muted">
-        The note is both years, the money at the start, the worry you named, and the next step. Not where the car sleeps. Nothing is sent until you send it.
+        The note is both years, the money at the start, the worry you named, and the next step. Not where you park. Nothing is sent until you send it.
       </p>
       <div className="mt-3 flex flex-col gap-2">
         <a
@@ -2668,7 +2877,7 @@ const FOLLOW: Record<FactKey, { prompt: string; chips: { label: string; detail?:
     ],
   },
   "public-tariff": {
-    prompt: "There is no live Swiss public tariff in this check. The rate stays a labelled placeholder until a source is dated.",
+    prompt: "Public charging uses the TCS 2026 average, not a live price. Providers differ by half or more.",
     chips: [],
   },
   "tenant-right": {

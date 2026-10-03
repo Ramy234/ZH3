@@ -58,11 +58,13 @@ export const FACTS: Record<FactKey, Fact> = {
   },
   "public-tariff": {
     key: "public-tariff",
-    title: "Public prices are not live in this check",
-    body: "There is no maintained Swiss public-tariff feed here. The public rate is a placeholder. A database can store a dated tariff once a source is agreed. It cannot invent a live price, and a chat model should not be asked to.",
-    source: "Placeholder. Not EICom and not a charging operator.",
-    as_of: "2026-10-02",
-    status: "placeholder",
+    title: "Public charging prices differ a lot",
+    body: "There is no maintained Swiss feed of public charging prices. This check uses the TCS 2026 averages: about 59 rappen a kWh at a fast charger and 51 with a subscription. TCS lists AC charging at about 50 and 40. Providers differ by half or more, and roaming can add a lot. Swiss law requires the price in francs per unit, such as kWh or minutes, shown before and during charging. Check the operator in the app before you drive there. If most of your charging is at home, this price matters little. If you have no home charger, it matters most.",
+    source: "TCS, charging on the road, 2026 (page undated). Price-display rule: Preisbekanntgabeverordnung. Not a live tariff.",
+    url: "https://www.tcs.ch/de/testberichte-ratgeber/ratgeber/elektromobilitaet/elektroauto-unterwegs-laden.php",
+    linkName: "TCS: charging on the road",
+    as_of: "2026-10-03",
+    status: "dated",
   },
   "tenant-right": {
     key: "tenant-right",
@@ -182,10 +184,10 @@ export const FACT_VIEW: Record<FactKey, FactView> = {
     ],
   },
   "public-tariff": {
-    kicker: "A stand-in. Not a live price.",
+    kicker: "An average. Not a live price.",
     lines: [
-      { label: "In the sum", text: "One public rate for every place. It is not a charging-network tariff." },
-      { label: "What is missing", text: "A dated Swiss source. Until that row exists, the gap stays labelled." },
+      { label: "In the sum", text: "One public rate for every place: the TCS 2026 average for fast charging, about 59 rappen a kWh. With a subscription, about 51." },
+      { label: "Why it can be off", text: "Providers differ by half or more, and roaming can add a lot. The price must be shown in francs per unit before you charge." },
       { label: "What this will not do", text: "Ask a chat model to invent the price." },
     ],
   },

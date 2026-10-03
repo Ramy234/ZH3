@@ -5,7 +5,7 @@ import type { Answers, Toggles } from "./model.ts";
 
 const A = (over: Partial<Answers>): Answers => ({ ...EMPTY, ...over });
 
-// Golden scenarios. Numbers pinned from the model as reviewed on 2 Oct 2026 (MODEL 2026-10-03-r3).
+// Golden scenarios. Numbers pinned from the model as reviewed on 2 Oct 2026 (MODEL 2026-10-03-r4; pump 2.14 / 2.46 (TCS 19 Sep 2026), home 0.265 (ElCom 2027 median), public 0.59 / 0.51).
 // A failing golden means the arithmetic moved: check it is intended, then bump MODEL and re-pin.
 const GOLDEN: {
   name: string;
@@ -19,16 +19,16 @@ const GOLDEN: {
   within: boolean;
   km: number;
 }[] = [
-  { name: "worked example", a: SAMPLE, headline: "Keep this car", keep: 3786, swap: 2188, cash: 27900, saving: 1598, year: 18, within: false, km: 14000 },
-  { name: "small car with trips", a: A({ barrier: "trips", carClass: "small", fuel: "petrol", uses: ["everyday", "holiday"], km: "mid", parking: "own", tripFreq: "often" }), headline: "Keep this car", keep: 3063, swap: 1948, cash: 25300, saving: 1115, year: 23, within: false, km: 14000 },
-  { name: "towing", a: A({ barrier: "trips", carClass: "suv", fuel: "diesel", uses: ["towing", "holiday"], km: "gt20", parking: "house" }), headline: "Keep this car", keep: 6950, swap: 4444, cash: 44600, saving: 2506, year: 18, within: false, km: 24000 },
-  { name: "already electric", a: A({ barrier: "cost", carClass: "compact", fuel: "electric", uses: ["everyday"], km: "mid", parking: "own" }), headline: "Keep this car", keep: 2432, swap: 2432, cash: 0, saving: 0, year: null, within: false, km: 14000 },
-  { name: "not sure kilometres", a: A({ barrier: "unsure", carClass: "compact", fuel: "petrol", uses: ["everyday"], km: "unsure", parking: "unsure" }), headline: "Keep this car", keep: 3471, swap: 2256, cash: 27900, saving: 1215, year: 23, within: false, km: 11000 },
-  { name: "low kilometres", a: A({ barrier: "cost", carClass: "small", fuel: "petrol", uses: ["everyday"], km: "lt10", parking: "none" }), headline: "Keep this car", keep: 2483, swap: 1944, cash: 12250, saving: 539, year: 23, within: false, km: 8000 },
-  { name: "high kilometres, used ok", a: A({ barrier: "cost", carClass: "mid", fuel: "diesel", uses: ["business", "long"], km: "gt20", parking: "house", usedStance: "yes" }), headline: "The extra price is covered here", keep: 5776, swap: 3620, cash: 9850, saving: 2156, year: 5, within: true, km: 24000 },
-  { name: "hybrid SUV, distrusts used", a: A({ barrier: "trust", carClass: "suv", fuel: "hybrid", uses: ["everyday"], km: "mid", parking: "own", usedStance: "no" }), headline: "Keep this car", keep: 4844, swap: 3697, cash: 44600, saving: 1147, year: 39, within: false, km: 14000 },
-  { name: "diesel van, business", a: A({ barrier: "charging", carClass: "van", fuel: "diesel", uses: ["business"], km: "gt20", parking: "own", workAccess: "yes" }), headline: "Keep this car", keep: 7178, swap: 3972, cash: 42900, saving: 3206, year: 14, within: false, km: 24000 },
-  { name: "nothing answered", a: EMPTY, headline: "Keep this car", keep: 3471, swap: 2735, cash: 26400, saving: 736, year: 36, within: false, km: 11000 },
+  { name: "worked example", a: SAMPLE, headline: "Keep this car", keep: 4203, swap: 2164, cash: 27900, saving: 2039, year: 14, within: false, km: 14000 },
+  { name: "small car with trips", a: A({ barrier: "trips", carClass: "small", fuel: "petrol", uses: ["everyday", "holiday"], km: "mid", parking: "own", tripFreq: "often" }), headline: "Keep this car", keep: 3328, swap: 1896, cash: 25300, saving: 1432, year: 18, within: false, km: 14000 },
+  { name: "towing", a: A({ barrier: "trips", carClass: "suv", fuel: "diesel", uses: ["towing", "holiday"], km: "gt20", parking: "house" }), headline: "Keep this car", keep: 7933, swap: 4313, cash: 44600, saving: 3620, year: 13, within: false, km: 24000 },
+  { name: "already electric", a: A({ barrier: "cost", carClass: "compact", fuel: "electric", uses: ["everyday"], km: "mid", parking: "own" }), headline: "Keep this car", keep: 2372, swap: 2372, cash: 0, saving: 0, year: null, within: false, km: 14000 },
+  { name: "not sure kilometres", a: A({ barrier: "unsure", carClass: "compact", fuel: "petrol", uses: ["everyday"], km: "unsure", parking: "unsure" }), headline: "Keep this car", keep: 3706, swap: 2209, cash: 27900, saving: 1497, year: 19, within: false, km: 11000 },
+  { name: "low kilometres", a: A({ barrier: "cost", carClass: "small", fuel: "petrol", uses: ["everyday"], km: "lt10", parking: "none" }), headline: "Keep this car", keep: 2634, swap: 1910, cash: 12250, saving: 724, year: 17, within: false, km: 8000 },
+  { name: "high kilometres, used ok", a: A({ barrier: "cost", carClass: "mid", fuel: "diesel", uses: ["business", "long"], km: "gt20", parking: "house", usedStance: "yes" }), headline: "The extra price is covered here", keep: 6606, swap: 3517, cash: 9850, saving: 3089, year: 4, within: true, km: 24000 },
+  { name: "hybrid SUV, distrusts used", a: A({ barrier: "trust", carClass: "suv", fuel: "hybrid", uses: ["everyday"], km: "mid", parking: "own", usedStance: "no" }), headline: "Keep this car", keep: 5132, swap: 3620, cash: 44600, saving: 1512, year: 30, within: false, km: 14000 },
+  { name: "diesel van, business", a: A({ barrier: "charging", carClass: "van", fuel: "diesel", uses: ["business"], km: "gt20", parking: "own", workAccess: "yes" }), headline: "Keep this car", keep: 8243, swap: 3916, cash: 42900, saving: 4327, year: 10, within: false, km: 24000 },
+  { name: "nothing answered", a: EMPTY, headline: "Keep this car", keep: 3706, swap: 2681, cash: 26400, saving: 1025, year: 26, within: false, km: 11000 },
 ];
 
 for (const g of GOLDEN) {
@@ -129,5 +129,5 @@ test("hybrid pays the petrol litre price", () => {
   const hybrid = evaluate({ ...base, fuel: "hybrid" }, suggestToggles({ ...base, fuel: "hybrid" }));
   const petrol = evaluate({ ...base, fuel: "petrol" }, suggestToggles({ ...base, fuel: "petrol" }));
   assert.ok(hybrid.annualKeep < petrol.annualKeep, "lower consumption still makes it cheaper to run");
-  assert.match(hybrid.parts[0].how, /1\.79 francs a litre/);
+  assert.match(hybrid.parts[0].how, /2\.14 francs a litre/);
 });

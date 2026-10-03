@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { EMPTY, SAMPLE, RATES, evaluate, suggestToggles } from "./model.ts";
+import { EMPTY, SAMPLE, RATES, PUMP, evaluate, suggestToggles } from "./model.ts";
+import { applyDataset } from "./dataset.ts";
 import { wouldHaveToBeTrue } from "./counterfactual.ts";
 import type { Answers } from "./model.ts";
 
@@ -34,12 +35,19 @@ test("covered: says how much room the extra price has before the year passes 8",
 });
 
 test("no saving: no price can make the money come back, and only a lever that creates a saving is offered", () => {
-  const { r, c } = run(A({ barrier: "cost", carClass: "compact", fuel: "hybrid", uses: ["everyday"], km: "gt20", parking: "none" }));
-  assert.ok(r.saving <= 40);
-  assert.equal(c.kind, "no-saving");
-  if (c.kind === "no-saving" && c.best) {
-    const next = evaluate(r.answers, { ...r.toggles, [c.best.key]: true }, r.official, r.canton);
-    assert.ok(next.saving > 40);
+  // At the 19 Sep 2026 pump price every ordinary case saves something, so this case needs a cheap-fuel year to exist.
+  const keep = { petrol: PUMP.petrol, hybrid: PUMP.hybrid, diesel: PUMP.diesel };
+  applyDataset([{ key: "pump.petrol", value: 1.2 }, { key: "pump.diesel", value: 1.3 }]);
+  try {
+    const { r, c } = run(A({ barrier: "cost", carClass: "compact", fuel: "hybrid", uses: ["everyday"], km: "gt20", parking: "none" }));
+    assert.ok(r.saving <= 40);
+    assert.equal(c.kind, "no-saving");
+    if (c.kind === "no-saving" && c.best) {
+      const next = evaluate(r.answers, { ...r.toggles, [c.best.key]: true }, r.official, r.canton);
+      assert.ok(next.saving > 40);
+    }
+  } finally {
+    applyDataset(Object.entries(keep).map(([k, value]) => ({ key: `pump.${k}`, value })));
   }
 });
 

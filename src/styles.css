@@ -3,18 +3,20 @@
 @theme {
   --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Fraunces", ui-serif, Georgia, serif;
-  --color-bg: #efeae2;
-  --color-sheet: #f6f3ed;
-  --color-card: #fffdf9;
-  --color-ink: #1b1916;
-  --color-muted: #6e675e;
-  --color-line: #e3dcd1;
-  --color-spruce: #1f4a38;
-  --color-spruce-ink: #f4f7f5;
-  --color-amber: #f3e6cf;
+  /* A cooler, whiter page than before: the colour now comes from the one dark panel and the lime accent. */
+  --color-bg: #eceee9;
+  --color-sheet: #f8f8f4;
+  --color-card: #ffffff;
+  --color-ink: #121b16;
+  --color-muted: #566259;
+  --color-line: #dde3dc;
+  --color-spruce: #0f3d2e;
+  --color-spruce-ink: #f4f8f5;
+  --color-volt: #c9f26b;
+  --color-amber: #f6e7c8;
   --color-amber-ink: #6a4a12;
-  --color-moss: #e5efe8;
-  --color-moss-ink: #1c4634;
+  --color-moss: #e3f0e6;
+  --color-moss-ink: #12402e;
 }
 
 @layer base {

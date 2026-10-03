@@ -58,32 +58,79 @@ const TCO = {
   source_url: "https://www.newsd.admin.ch/newsd/message/attachments/76353.pdf",
 };
 
+type Evidence = Pick<DatasetRow, "status" | "publisher" | "published_on" | "source_url"> & { note: string };
+
+// Rows with a dated, linked source (checked on 3 Oct 2026). Everything else stays a placeholder.
+const SOURCED: Record<string, Evidence> = {
+  "pump.petrol": {
+    status: "sourced",
+    publisher: "TCS (Touring Club Schweiz), Benzinpreise Schweiz",
+    published_on: "2026-09-19",
+    source_url: "https://www.tcs.ch/de/camping-reisen/reiseinformationen/wissenswertes/fahrkosten-gebuehren/benzinpreise-schweiz.php",
+    note: "Euro-Super 95, TCS table of 19 Sep 2026. A spot price near this year's high (about 1.77 in late February). W3 replaces it with the BFS monthly average once that file is wired.",
+  },
+  "pump.diesel": {
+    status: "sourced",
+    publisher: "TCS (Touring Club Schweiz), Benzinpreise Schweiz",
+    published_on: "2026-09-19",
+    source_url: "https://www.tcs.ch/de/camping-reisen/reiseinformationen/wissenswertes/fahrkosten-gebuehren/benzinpreise-schweiz.php",
+    note: "Diesel, TCS table of 19 Sep 2026. A spot price near this year's high. W3 replaces it with the BFS monthly average once that file is wired.",
+  },
+  "rate.home": {
+    status: "sourced",
+    publisher: "ElCom via the Federal Council, press release on 2027 electricity tariffs",
+    published_on: "2026-09-08",
+    source_url: "https://www.admin.ch/de/newnsb/1miE201yRzoA",
+    note: "National median 2027, profile H4 (4,500 kWh a year): 26.5 Rp./kWh. 2026 was 27.7. Replaced by the ElCom canton or commune figure when one is picked.",
+  },
+};
+
+// Evidence found for rows that stay placeholders: it says which way the real figure points, it does not set the number.
+const EVIDENCE_NOTE: Record<string, string> = {
+  "rate.public": "TCS 2026 (page undated): DC average 59 Rp./kWh, AC average 50. The model uses the DC average. Prices differ by half or more between providers.",
+  "rate.publicPlan": "TCS 2026 (page undated): DC with a subscription 51 Rp./kWh, AC budget 40. The model uses the DC subscription figure.",
+  "rate.wallbox": "Observed range 900 to 2,500 CHF for one wallbox (Beobachter, undated). Up to 15,000 CHF for an 18-bay building.",
+  "rate.sharedInstall": "Unverified. Reported cases run up to 15,000 CHF for an 18-bay building (Beobachter, undated).",
+};
+const EVIDENCE_FIELD: Record<string, string> = {
+  bevNew: "Class placeholder. Swiss average listing price of a new electric car: 51,424 CHF in Q1 2026, down 4.2 % (AutoScout24, 9 Apr 2026). Not comparable by class.",
+  bevUsed: "Class placeholder. Swiss average listing price of a used electric car: 40,599 CHF in Q1 2026, down 3.2 % (AutoScout24, 9 Apr 2026). Skewed by expensive models.",
+  resale: "Class placeholder. No Swiss resale figure by class was found. Needs a Eurotax or AutoScout24 extract.",
+  iceIns: "Class placeholder, not a quote. Comparis (19 Aug 2025): fully comprehensive cover is cheaper for an electric car in 70 % of cases. Many insurers expected higher premiums in 2026.",
+  bevIns: "Class placeholder, not a quote. Comparis (19 Aug 2025): fully comprehensive cover is cheaper for an electric car in 70 % of cases. Zurich states a discount of up to 20 %. That ceiling is not applied.",
+};
+
 export function seedRows(): DatasetRow[] {
   const rows: DatasetRow[] = [];
   for (const [name, value] of Object.entries(RATES)) {
     const meta = RATE_META[name]!;
-    const sourced = name === "horizon";
+    const key = `rate.${name}`;
+    const ev: Evidence | undefined = name === "horizon"
+      ? { status: "sourced", publisher: TCO.publisher, published_on: TCO.published_on, source_url: TCO.source_url, note: meta.note }
+      : SOURCED[key];
     rows.push({
-      key: `rate.${name}`,
+      key,
       value,
       unit: meta.unit,
-      status: sourced ? "sourced" : "placeholder",
-      publisher: sourced ? TCO.publisher : null,
-      published_on: sourced ? TCO.published_on : null,
-      source_url: sourced ? TCO.source_url : null,
-      note: meta.note,
+      status: ev?.status ?? "placeholder",
+      publisher: ev?.publisher ?? null,
+      published_on: ev?.published_on ?? null,
+      source_url: ev?.source_url ?? null,
+      note: ev?.note ?? EVIDENCE_NOTE[key] ?? meta.note,
     });
   }
   for (const [fuel, value] of Object.entries(PUMP)) {
+    const key = `pump.${fuel}`;
+    const ev = SOURCED[key];
     rows.push({
-      key: `pump.${fuel}`,
+      key,
       value,
       unit: "CHF/litre",
-      status: "placeholder",
-      publisher: null,
-      published_on: null,
-      source_url: null,
-      note: fuel === "hybrid" ? "Equals pump.petrol. A hybrid buys petrol: the model reads pump.petrol for it and ignores this row." : "Pump price. W3 will replace this with the BFS monthly average.",
+      status: ev?.status ?? "placeholder",
+      publisher: ev?.publisher ?? null,
+      published_on: ev?.published_on ?? null,
+      source_url: ev?.source_url ?? null,
+      note: ev?.note ?? "Equals pump.petrol. A hybrid buys petrol: the model reads pump.petrol for it and ignores this row.",
     });
   }
   for (const [cls, spec] of Object.entries(SPECS)) {
@@ -96,7 +143,7 @@ export function seedRows(): DatasetRow[] {
         publisher: null,
         published_on: null,
         source_url: null,
-        note: field === "battery" ? "Usable battery, class placeholder. Used only for the ordinary-week strip, never for francs." : "Class placeholder, not a quote.",
+        note: field === "battery" ? "Usable battery, class placeholder. Used only for the ordinary-week strip, never for francs." : EVIDENCE_FIELD[field] ?? "Class placeholder, not a quote.",
       });
     }
   }
@@ -129,4 +176,23 @@ export function applyDataset(rows: Pick<DatasetRow, "key" | "value">[]): number 
 /** For the "how this line is made" text: status and source of one key. */
 export function describe(rows: DatasetRow[], key: string): DatasetRow | undefined {
   return rows.find((r) => r.key === key);
+}
+
+/**
+ * Run `fn` with some dataset numbers swapped, then put every one back (also if `fn` throws).
+ * Synchronous on purpose: nothing else can read the model numbers while the swap is in place.
+ * Used for "what if this number were different" views. It never keeps a change.
+ */
+export function withDataset<T>(overrides: Pick<DatasetRow, "key" | "value">[], fn: () => T): T {
+  const saved: { obj: Record<string, number>; field: string; value: number }[] = [];
+  for (const o of overrides) {
+    const t = target(o.key);
+    if (t) saved.push({ obj: t.obj, field: t.field, value: t.obj[t.field]! });
+  }
+  applyDataset(overrides);
+  try {
+    return fn();
+  } finally {
+    for (const s of saved) s.obj[s.field] = s.value;
+  }
 }

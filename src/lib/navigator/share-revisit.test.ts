@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { EMPTY, SAMPLE, evaluate, suggestToggles } from "./model.ts";
+import { EMPTY, SAMPLE, PUMP, evaluate, suggestToggles } from "./model.ts";
+import { applyDataset } from "./dataset.ts";
 import { cardContent } from "./share-card.ts";
 import { monthsLater, revisitIcs } from "./revisit.ts";
 import type { Answers } from "./model.ts";
@@ -20,8 +21,15 @@ test("card: same title and figures as the page, and nothing about the person", (
 });
 
 test("card: no payback year is said plainly, and an already-electric case has nothing extra at the start", () => {
-  const hybrid = result(A({ barrier: "cost", carClass: "compact", fuel: "hybrid", uses: ["everyday"], km: "gt20", parking: "none" }));
-  assert.match(cardContent(hybrid).payback, /does not cost less to run/);
+  // At the 19 Sep 2026 pump price every ordinary case saves something, so this case needs a cheap-fuel year to exist.
+  const keep = { petrol: PUMP.petrol, diesel: PUMP.diesel };
+  applyDataset([{ key: "pump.petrol", value: 1.2 }, { key: "pump.diesel", value: 1.3 }]);
+  try {
+    const hybrid = result(A({ barrier: "cost", carClass: "compact", fuel: "hybrid", uses: ["everyday"], km: "gt20", parking: "none" }));
+    assert.match(cardContent(hybrid).payback, /does not cost less to run/);
+  } finally {
+    applyDataset(Object.entries(keep).map(([k, value]) => ({ key: `pump.${k}`, value })));
+  }
   const electric = result(A({ barrier: "cost", carClass: "compact", fuel: "electric", uses: ["everyday"], km: "mid", parking: "own" }));
   assert.match(cardContent(electric).figures[1].note, /nothing extra/);
 });

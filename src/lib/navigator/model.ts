@@ -89,11 +89,11 @@ export const SAMPLE: Answers = {
 };
 
 export const RATES = {
-  home: 0.29,
+  home: 0.265,
   homeSpecial: 0.21,
   work: 0.18,
-  public: 0.62,
-  publicPlan: 0.48,
+  public: 0.59,
+  publicPlan: 0.51,
   pv: 0.06,
   pvShare: 0.4,
   rentalDay: 75,
@@ -195,10 +195,10 @@ export const SPECS: Record<CarClass, Spec> = {
 };
 
 export const PUMP: Record<Exclude<Fuel, "electric">, number> = {
-  petrol: 1.79,
-  diesel: 1.93,
+  petrol: 2.14,
+  diesel: 2.46,
   // A hybrid buys petrol. The model reads `petrol` for it (see `pumpFor`); this row only keeps the dataset sheet aligned.
-  hybrid: 1.79,
+  hybrid: 2.14,
 };
 
 /** The litre price the car actually pays. A hybrid is a petrol car with lower consumption, not a cheaper fuel. */
@@ -206,9 +206,9 @@ export function pumpFor(fuel: Exclude<Fuel, "electric">): number {
   return fuel === "hybrid" ? PUMP.petrol : PUMP[fuel];
 }
 
-export const DATASET = "placeholder-2026-10-02";
+export const DATASET = "v-2026-10-03-0001";
 /** Bump when the arithmetic changes, so stored rows from before and after can be told apart. */
-export const MODEL = "2026-10-03-r3";
+export const MODEL = "2026-10-03-r4";
 
 export const SOURCES = {
   "tco-2023": {
@@ -334,44 +334,44 @@ export const PERSONA_META: Record<PersonaId, { title: string; line: string }> = 
 export const BARRIERS: { id: Barrier; title: string; detail: string }[] = [
   {
     id: "charging",
-    title: "Not where the car sleeps",
-    detail: "A shared garage, no bay, or someone else who still has to say yes.",
+    title: "I could not charge it where I park",
+    detail: "A shared garage, no bay of my own, or a building that has to agree.",
   },
   {
     id: "cost",
-    title: "Not at a price I can pay",
-    detail: "The cheque, or the fear it is worth less next year.",
+    title: "It costs too much",
+    detail: "The purchase price, or the worry that it loses value fast.",
   },
   {
     id: "trips",
-    title: "Not for the trips that are not ordinary",
-    detail: "The holiday, towing, or a distance that is not a Tuesday.",
+    title: "It would not manage my longer trips",
+    detail: "Holidays, towing, or a distance beyond a normal week.",
   },
   {
     id: "trust",
-    title: "Not until I trust it",
-    detail: "Winter, the battery, repair, or a used car that might be a guess.",
+    title: "I do not trust it yet",
+    detail: "Winter range, the battery, repairs, or a used car I cannot judge.",
   },
   {
     id: "unsure",
-    title: "I do not know. Show me a number",
-    detail: "No invented barrier. The car and the parking come next.",
+    title: "Not sure. Just show me the numbers",
+    detail: "No need to pick a reason. Your car and your parking come next.",
   },
 ];
 
 export const CLASSES: { id: CarClass; title: string; detail: string }[] = [
-  { id: "small", title: "Small city car", detail: "Most days, one or two people." },
-  { id: "compact", title: "Compact", detail: "The usual Swiss everyday car." },
+  { id: "small", title: "Small city car", detail: "Mostly one or two people." },
+  { id: "compact", title: "Compact", detail: "The typical Swiss family car." },
   { id: "mid", title: "Mid-size", detail: "More boot, more motorway." },
-  { id: "suv", title: "SUV", detail: "Higher, heavier, and it uses more fuel." },
-  { id: "van", title: "Van or large", detail: "For a family, or for work." },
+  { id: "suv", title: "SUV", detail: "Higher and heavier, so it uses more fuel." },
+  { id: "van", title: "Van or large", detail: "For a big family, or for work." },
 ];
 
 export const FUELS: { id: Fuel; title: string; detail: string }[] = [
-  { id: "petrol", title: "Petrol", detail: "You buy petrol. There is no plug." },
+  { id: "petrol", title: "Petrol", detail: "You fill up with petrol. There is no plug." },
   { id: "diesel", title: "Diesel", detail: "Including a mild hybrid you do not plug in." },
-  { id: "hybrid", title: "Hybrid", detail: "Charges itself. You still buy fuel." },
-  { id: "electric", title: "Already electric", detail: "Then the question is size and charging, not the switch." },
+  { id: "hybrid", title: "Hybrid", detail: "Charges itself while driving. You still buy fuel." },
+  { id: "electric", title: "Already electric", detail: "Then the question is the size of the car and where you charge it." },
 ];
 
 export const USES: { id: UseId; title: string }[] = [
@@ -384,18 +384,18 @@ export const USES: { id: UseId; title: string }[] = [
 ];
 
 export const KM_BANDS: { id: KmBand; title: string; detail: string }[] = [
-  { id: "lt10", title: "Under 10,000 km", detail: "Under about 200 km a week. A short daily hop, or less." },
-  { id: "mid", title: "10,000 to 20,000 km", detail: "About 200 to 400 km a week. A commute, plus errands." },
-  { id: "gt20", title: "Over 20,000 km", detail: "Over about 400 km a week. Most days, or long distances." },
-  { id: "unsure", title: "Not sure", detail: "Leave it. A typical figure for this situation, and it stays labelled." },
+  { id: "lt10", title: "Under 10,000 km", detail: "Under about 200 km a week. Short hops, or less." },
+  { id: "mid", title: "10,000 to 20,000 km", detail: "About 200 to 400 km a week. A commute plus errands." },
+  { id: "gt20", title: "Over 20,000 km", detail: "Over about 400 km a week. Daily driving, or long distances." },
+  { id: "unsure", title: "Not sure", detail: "That is fine. We use a typical figure and label it as one." },
 ];
 
 export const PARKING: { id: Parking; title: string; detail: string }[] = [
   { id: "house", title: "House with a garage", detail: "You control the bay." },
   { id: "own", title: "My own bay", detail: "Apartment or house, the space is yours." },
   { id: "shared", title: "Shared garage", detail: "A building decision, not only yours." },
-  { id: "none", title: "No bay where I sleep", detail: "This is a real barrier, not a lack of will." },
-  { id: "unsure", title: "Not sure", detail: "We will not pretend you have a charger." },
+  { id: "none", title: "No parking bay at home", detail: "That is a real obstacle, and the check treats it as one." },
+  { id: "unsure", title: "Not sure", detail: "We will not assume you can charge at home." },
 ];
 
 export function usesForBarrier(barrier: Barrier): UseId[] {
@@ -553,7 +553,7 @@ export function parkPhrase(parking: Parking | null): string {
   if (parking === "house") return "with a garage at home";
   if (parking === "own") return "with your own bay";
   if (parking === "shared") return "in a shared garage";
-  if (parking === "none") return "without a bay where you sleep";
+  if (parking === "none") return "without a parking bay at home";
   return "with parking still unclear";
 }
 
@@ -691,7 +691,7 @@ function nextSteps(
       detail: "A short loop hides winter range and the real charging routine. A weekend will not.",
       lines: [
         "Drive the commute you actually do",
-        "Charge where this car would sleep, not only at the seller",
+        "Charge where you would park this car, not only at the seller",
         "If one trip is the worry, drive that distance",
       ],
     });
@@ -857,11 +857,17 @@ export function evaluate(
   const keepIns = fuel === "electric" ? ice.bevIns : ice.iceIns;
   const keepUpkeep = fuel === "electric" ? ice.bevMaint : ice.iceMaint;
   const kmLabel = kmInfo.km.toLocaleString("de-CH");
+  const TCS_PUMP = "https://www.tcs.ch/de/camping-reisen/reiseinformationen/wissenswertes/fahrkosten-gebuehren/benzinpreise-schweiz.php";
+  const ELCOM_2027 = "https://www.admin.ch/de/newnsb/1miE201yRzoA";
+  const levyLine = "Not in these francs: the Federal Council proposed on 26 September 2025 a levy on electric cars from 2030, either about 5.4 rappen a kilometre or 22.8 rappen a kWh. The consultation closed on 9 January 2026. It is a draft, not law.";
   const fuelHow = alreadyElectric
-    ? `${kmLabel} km, this class’s consumption, and ${rate.toFixed(2)} francs a kWh. The rate is a placeholder, not a bill. There is no public tariff behind it, so there is no source link.`
-    : `Keeping the car: ${kmLabel} km × ${litresPer100.toFixed(1)} litres per 100 km × ${pumpFor(fuel).toFixed(2)} francs a litre. Switching: ${kmLabel} km × ${bev.kwh} kWh per 100 km × ${rate.toFixed(2)} francs a kWh. The litre price, the consumption and the rate are placeholders. No pump and no utility is the source, so this line has no link. Not in these francs: the Federal Council proposed on 26 September 2025 a levy on electric cars from 2030, either about 5.4 rappen a kilometre or 22.8 rappen a kWh. The consultation closed on 9 January 2026. It is a draft, not law.`;
+    ? `${kmLabel} km, this class’s consumption, and ${rate.toFixed(2)} francs a kWh. Home power is the ElCom median for 2027 (26.5 rappen a kWh, published 8 September 2026) unless you picked a place. Work and public prices are illustrative. Consumption is a class placeholder, not your car.`
+    : `Keeping the car: ${kmLabel} km × ${litresPer100.toFixed(1)} litres per 100 km × ${pumpFor(fuel).toFixed(2)} francs a litre. Switching: ${kmLabel} km × ${bev.kwh} kWh per 100 km × ${rate.toFixed(2)} francs a kWh. The litre price is the TCS table of 19 September 2026, a spot price close to this year’s high (about 1.77 for petrol in late February). The kWh price blends home, work and public charging: home is the ElCom median for 2027 unless you picked a place, public is the TCS average for fast charging. Consumption per 100 km is a class placeholder. ${levyLine}`;
+  const fuelLink = alreadyElectric
+    ? { name: "ElCom electricity tariffs 2027, Federal Council, 8 September 2026", href: ELCOM_2027 }
+    : { name: "TCS: pump prices in Switzerland, 19 September 2026", href: TCS_PUMP };
   const parts: Result["parts"] = [
-    { label: alreadyElectric ? "Power" : "Fuel, or power", keep: Math.round(fuelCost), swap: sameCar ? Math.round(fuelCost) : Math.round(energy), how: fuelHow },
+    { label: alreadyElectric ? "Power" : "Fuel, or power", keep: Math.round(fuelCost), swap: sameCar ? Math.round(fuelCost) : Math.round(energy), how: fuelHow, link: fuelLink },
     {
       label: "Insurance",
       keep: keepIns,
@@ -898,18 +904,18 @@ export function evaluate(
   ];
 
   const rentalNote = days > 0 ? ` Includes ${days} rental days.` : "";
-  const yearLine = `About ${Math.ceil(paybackYears ?? 0)} years to cover it. This picture stops at ${horizon}${horizon === 8 ? ", the federal study" : ""}.`;
+  const yearLine = `About ${Math.ceil(paybackYears ?? 0)} years to cover it, if you keep the next car that long. The picture stops at ${horizon}${horizon === 8 ? ", the length the federal cost study used" : ""}.`;
   const canDrop = !uses.includes("towing") && iceClass !== "small";
   const stillOpen = toggles.used
     ? classDropped || !canDrop
-      ? "Used is already in."
-      : "Used is already in. One class down would change the extra price again."
+      ? "A used car is already counted."
+      : "A used car is already counted. One class down would change the extra price again."
     : classDropped || !canDrop
-      ? "A used car would change the extra price."
-      : "A used car, or one class down, is what changes the extra price.";
+      ? "A used car would lower the extra price."
+      : "What lowers the extra price most: a used car, or one class down.";
   const notCheaper = classDropped || !canDrop
-    ? "A used car would not change that. It only lowers the price at the start."
-    : "A used car would not change that. It only lowers the price at the start. One class down changes the running cost.";
+    ? "A used car would not change that: it only lowers the price at the start."
+    : "A used car would not change that: it only lowers the price at the start. One class down changes the running cost.";
 
   let headline: string;
   let verdict: string;
@@ -919,16 +925,16 @@ export function evaluate(
   } else if (saving <= 40) {
     headline = "Keep this car";
     verdict = alreadyElectric
-      ? "A different electric car does not cost less to run. The year is fuel or power, insurance, tax and service."
-      : `Switching does not cost less to run. The year is fuel or power, insurance, tax and service.\n${notCheaper}`;
+      ? "A different electric car does not cost less to run. Counted: fuel or power, insurance, tax and service."
+      : `Switching does not cost less to run. Counted: fuel or power, insurance, tax and service.\n${notCheaper}`;
   } else if (withinHorizon) {
     headline = "The extra price is covered here";
-    verdict = `${chf(saving)} less a year to run. Fuel or power, insurance, tax and service.${rentalNote}\n${chf(cash)} more at the start, after selling the car you have.\n${
+    verdict = `${chf(saving)} less a year to run, about ${chf(Math.round(saving / 12))} a month. Counted: fuel or power, insurance, tax and service.${rentalNote}\n${chf(cash)} more up front, after selling your current car.\n${
       paybackYears != null && paybackYears < 1 ? "Covered in under a year" : `Covered in year ${Math.ceil(paybackYears ?? 0)}, if you keep the next car that long`
-    }. This picture is ${horizon} years. Nobody sends you the difference.`;
+    }. The picture covers ${horizon} years. Nobody pays out the difference.`;
   } else {
     headline = "Keep this car";
-    verdict = `${chf(saving)} less a year to run. Fuel or power, insurance, tax and service.${rentalNote}\n${chf(cash)} more at the start, after selling the car you have.\n${yearLine}\n${stillOpen}`;
+    verdict = `${chf(saving)} less a year to run, about ${chf(Math.round(saving / 12))} a month. Counted: fuel or power, insurance, tax and service.${rentalNote}\n${chf(cash)} more up front, after selling your current car.\n${yearLine}\n${stillOpen}`;
   }
 
   const pct = (n: number) => `${Math.round(n * 100)}%`;
@@ -978,8 +984,8 @@ export function evaluate(
     {
       label: "Blended electricity",
       value: elcom && !toggles.tariff
-        ? `${rate.toFixed(2)} CHF/kWh · home ${homeRate.toFixed(2)} is the ElCom ${elcom.year} mean for ${elcom.place}, category H4, ${elcom.n.toLocaleString("de-CH")} communes. Not your household, and not an electric-car tariff. Work ${RATES.work.toFixed(2)} and public ${publicRate.toFixed(2)} stay placeholders.`
-        : `${rate.toFixed(2)} CHF/kWh · home ${homeRate.toFixed(2)}, work ${RATES.work.toFixed(2)}, public ${publicRate.toFixed(2)}`,
+        ? `${rate.toFixed(2)} CHF/kWh · home ${homeRate.toFixed(2)} is the ElCom ${elcom.year} mean for ${elcom.place}, category H4, ${elcom.n.toLocaleString("de-CH")} communes. Not your household, and not an electric-car tariff. Work ${RATES.work.toFixed(2)} is illustrative. Public ${publicRate.toFixed(2)} follows the TCS average for fast charging (2026).`
+        : `${rate.toFixed(2)} CHF/kWh · home ${homeRate.toFixed(2)} (ElCom national median for 2027 unless you picked a place), work ${RATES.work.toFixed(2)} (illustrative), public ${publicRate.toFixed(2)} (TCS average, fast charging)`,
       tag: elcom && !toggles.tariff ? "Official" : "Model",
       edit: "power",
       link: { name: "ElCom electricity prices", href: "https://www.strompreis.elcom.admin.ch/" },
