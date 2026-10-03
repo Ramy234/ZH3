@@ -109,7 +109,7 @@ const NODES = [
   { name: "Sort", engine: "TypeSafe", line: "A label and a confidence. No paragraph." },
   { name: "Price", engine: "Code", line: "Payback stays arithmetic, in the browser." },
   { name: "Options", engine: "Switch", line: "A finite list: 2:1, used, work, a mobile charger." },
-  { name: "Plan", engine: "Postgres", line: "One anonymous row when the result opens, and again after a change." },
+  { name: "Plan", engine: "Postgres", line: "One row, under a random session number, when the result opens, and again after a change." },
 ] as const;
 
 const BACK: Record<Step, Step | null> = {
@@ -1416,7 +1416,7 @@ function Focus({
           See the numbers
         </button>
         <button type="button" onClick={onSend} className="mt-3 text-sm text-muted">
-          {sent === "saved" ? "Anonymous snapshot sent" : sent === "sending" ? "Sending…" : "Send these taps, anonymously"}
+          {sent === "saved" ? "Snapshot sent, no name" : sent === "sending" ? "Sending…" : "Send these taps, no name"}
         </button>
       </div>
     </div>
@@ -1697,7 +1697,7 @@ function ResultView({
               </div>
             ) : null}
             {sample ? null : (
-              <p className="mt-2 text-xs leading-relaxed text-spruce-ink/60">Opening this page saves an anonymous record. No name, no address.</p>
+              <p className="mt-2 text-xs leading-relaxed text-spruce-ink/60">Opening this page saves one record under a random session number. No name, no address.</p>
             )}
           </section>
         </div>
@@ -2177,7 +2177,7 @@ function ResultView({
         <section>
           <h2 className="font-medium">Did something not make sense?</h2>
           <p className="mt-1 text-sm leading-relaxed text-muted">
-            Tap one. It is saved with your anonymous record. There is no message box and no reply.
+            Tap one. It is saved with your record, under a random session number. There is no message box and no reply.
           </p>
           <div className="mt-3 flex flex-col gap-2">
             {(

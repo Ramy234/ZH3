@@ -1156,7 +1156,7 @@ export function researchRecord(result: Result, sessionId: string, opened: string
     tool: "bev-navigator-prototype",
     sessionId,
     createdAt: new Date().toISOString(),
-    note: "Anonymous bag. No name, postcode, or free text. Same shape as the optional session send. This download stays on the device.",
+    note: "Bag with no name, postcode, or free text. Same shape as the optional session send. This download stays on the device.",
     barrier: result.answers.barrier,
     carClass: result.answers.carClass,
     fuel: result.answers.fuel,
