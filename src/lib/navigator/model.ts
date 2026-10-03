@@ -195,10 +195,10 @@ export const SPECS: Record<CarClass, Spec> = {
 };
 
 export const PUMP: Record<Exclude<Fuel, "electric">, number> = {
-  petrol: 2.14,
-  diesel: 2.46,
+  petrol: 1.83,
+  diesel: 2.03,
   // A hybrid buys petrol. The model reads `petrol` for it (see `pumpFor`); this row only keeps the dataset sheet aligned.
-  hybrid: 2.14,
+  hybrid: 1.83,
 };
 
 /** The litre price the car actually pays. A hybrid is a petrol car with lower consumption, not a cheaper fuel. */
@@ -206,7 +206,7 @@ export function pumpFor(fuel: Exclude<Fuel, "electric">): number {
   return fuel === "hybrid" ? PUMP.petrol : PUMP[fuel];
 }
 
-export const DATASET = "v-2026-10-03-0002";
+export const DATASET = "v-2026-10-03-0003";
 /** Bump when the arithmetic changes, so stored rows from before and after can be told apart. */
 export const MODEL = "2026-10-03-r4";
 
@@ -870,7 +870,7 @@ export function evaluate(
   const levyLine = "Not in these francs: the Federal Council proposed on 26 September 2025 a levy on electric cars from 2030, either about 5.4 rappen a kilometre or 22.8 rappen a kWh. The consultation closed on 9 January 2026. It is a draft, not law.";
   const fuelHow = alreadyElectric
     ? `${kmLabel} km, this class’s consumption, and ${rate.toFixed(2)} francs a kWh. Home power is the ElCom median for 2027 (26.5 rappen a kWh, published 8 September 2026) unless you picked a place. Work and public prices are illustrative. Consumption is a class placeholder, not your car.`
-    : `Keeping the car: ${kmLabel} km × ${litresPer100.toFixed(1)} litres per 100 km × ${pumpFor(fuel).toFixed(2)} francs a litre. Switching: ${kmLabel} km × ${bev.kwh} kWh per 100 km × ${rate.toFixed(2)} francs a kWh. The litre price is the TCS table of 19 September 2026, a spot price close to this year’s high (about 1.77 for petrol in late February). The kWh price blends home, work and public charging: home is the ElCom median for 2027 unless you picked a place, public is the TCS average for fast charging. Consumption per 100 km is a class placeholder. ${levyLine}`;
+    : `Keeping the car: ${kmLabel} km × ${litresPer100.toFixed(1)} litres per 100 km × ${pumpFor(fuel).toFixed(2)} francs a litre. Switching: ${kmLabel} km × ${bev.kwh} kWh per 100 km × ${rate.toFixed(2)} francs a kWh. The litre price is the average of the 23 entries in the TCS table from 1 January to 19 September 2026, each counted from its date to the next (the latest single price, 19 September, is 2.14 for petrol). The kWh price blends home, work and public charging: home is the ElCom median for 2027 unless you picked a place, public is the TCS average for fast charging. Consumption per 100 km is a class placeholder. ${levyLine}`;
   const fuelLink = alreadyElectric
     ? { name: "ElCom electricity tariffs 2027, Federal Council, 8 September 2026", href: ELCOM_2027 }
     : { name: "TCS: pump prices in Switzerland, 19 September 2026", href: TCS_PUMP };

@@ -67,14 +67,14 @@ const SOURCED: Record<string, Evidence> = {
     publisher: "TCS (Touring Club Schweiz), Benzinpreise Schweiz",
     published_on: "2026-09-19",
     source_url: "https://www.tcs.ch/de/camping-reisen/reiseinformationen/wissenswertes/fahrkosten-gebuehren/benzinpreise-schweiz.php",
-    note: "Euro-Super 95, TCS table of 19 Sep 2026. A spot price and the highest of the table's 23 entries this year: it ran from 1.61 (3 Feb) to 2.14. The time-weighted average of the 2026 entries is 1.83. TCS Kilometerkosten 2026 (6 Jan 2026) used 1.71 as a yearly average. A spot at the top leans toward switching; a monthly average is meant to replace it once chosen.",
+    note: "Euro-Super 95. Derived: the time-weighted average of the 23 entries in the TCS table from 1 Jan to 19 Sep 2026 (261 days), each price counted from its date to the next entry. The latest single price, 19 Sep, is 2.14, the highest of the year; the lowest is 1.61 (3 Feb). TCS Kilometerkosten 2026 (6 Jan 2026) used 1.71 as a yearly average. Replaced by a federal monthly average if one is wired.",
   },
   "pump.diesel": {
     status: "sourced",
     publisher: "TCS (Touring Club Schweiz), Benzinpreise Schweiz",
     published_on: "2026-09-19",
     source_url: "https://www.tcs.ch/de/camping-reisen/reiseinformationen/wissenswertes/fahrkosten-gebuehren/benzinpreise-schweiz.php",
-    note: "Diesel, TCS table of 19 Sep 2026. A spot price and the highest of the table's 23 entries this year: it ran from 1.73 (3 Feb) to 2.46. The time-weighted average of the 2026 entries is 2.03. A spot at the top leans toward switching; a monthly average is meant to replace it once chosen.",
+    note: "Diesel. Derived: the time-weighted average of the 23 entries in the TCS table from 1 Jan to 19 Sep 2026 (261 days), each price counted from its date to the next entry. The latest single price, 19 Sep, is 2.46, the highest of the year; the lowest is 1.73 (3 Feb). Replaced by a federal monthly average if one is wired.",
   },
   "rate.home": {
     status: "sourced",

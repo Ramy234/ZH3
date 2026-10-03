@@ -109,7 +109,7 @@ function Method() {
           <div className="rounded-2xl border border-line bg-card p-4">
             <p className="text-xs tracking-widest text-muted uppercase">Newest source date</p>
             <p className="font-serif mt-1 text-xl">{dateLabel(newest) ?? "-"}</p>
-            <p className="mt-1 text-xs text-muted">Pump prices are a single day's spot price.</p>
+            <p className="mt-1 text-xs text-muted">Pump prices are the average of this year's TCS entries.</p>
           </div>
         </section>
 

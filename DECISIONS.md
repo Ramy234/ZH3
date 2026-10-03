@@ -83,3 +83,10 @@
 - **A wrong note corrected.** The petrol row said the price was "about 1.77 in late February". The TCS table says 1.67 on 26 Feb and 1.61 on 3 Feb. The 2026 pump price ran from 1.61 to 2.14 (diesel 1.73 to 2.46). The time-weighted average of the 23 TCS entries is 1.83 (diesel 2.03).
 - **Petrol default still open.** The model uses the 19 Sep spot (2.14), the highest entry this year. That leans toward switching. Options: keep, use the 2026 average (1.83, derived from the TCS table), or use the TCS yearly average 1.71 from January. Changing it moves every franc figure and needs a MODEL bump and a re-pin of the golden tests. Martin decides.
 - **Where real class data could come from:** a Eurotax residual-value extract, the TCS full cost data, or auto-schweiz segment prices. Zurich (Christian Zeunert) may be able to share residual values or claims-based class costs as neutral inputs. To be asked, not assumed.
+
+## 3 Oct 2026 (evening): petrol and diesel default moved to the 2026 average
+
+- **Martin's yes.** The litre price was the 19 Sep spot (petrol 2.14, diesel 2.46), the highest of the year. It is now the time-weighted average of the 23 entries in the TCS table from 1 Jan to 19 Sep 2026: **petrol 1.83, diesel 2.03** (hybrid reads petrol). Each price counts from its date to the next entry. The latest single price stays in the row's note.
+- **Why not a federal figure.** A federal monthly series (BFS or BFE) was searched for and none was reachable as a clean file, so the TCS table remains the one dated, reproducible source. Replace it with the federal monthly average when that file is wired (W3).
+- **Effect.** Keeping a petrol car costs less per year, so payback moves later: the worked example goes from year 14 to year 17 and keeping costs 3,865 a year instead of 4,203. Headlines did not change in any golden scenario. The golden numbers were re-pinned from the model.
+- **Version.** Dataset `v-2026-10-03-0003` (migration 0022). 0021 stays frozen. MODEL stays `2026-10-03-r4` because no formula changed.
